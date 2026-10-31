@@ -173,10 +173,33 @@
 
   .cc .owed { font-size: 20px; font-weight: 650; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
   .cc .bar-track { margin: 8px 0 6px; }
-  .cc .bar-fill.high { background: var(--bad); }
+  .bar-fill.high { background: var(--bad); }
+  .plan-meta { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .cc .line { font-size: 13px; color: var(--text-2); }
   .alert { border-color: var(--bad); }
   .alert div + div { margin-top: 4px; }
+
+  nav .short { display: none; }
+  .plan-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .plan-tile { text-align: left; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 12px; cursor: pointer; font: inherit; color: var(--text); }
+  .plan-tile.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .plan-tile .amt { font-size: 18px; font-weight: 650; margin-top: 2px; }
+  .plan-item {
+    display: grid; gap: 6px 8px; align-items: end; padding: 10px 0; border-bottom: 1px solid var(--grid);
+    grid-template-columns: minmax(120px, 2fr) minmax(90px, 1.2fr) minmax(80px, 1fr) auto minmax(90px, 1fr) auto;
+  }
+  .plan-item label { font-size: 12px; }
+  .plan-item input, .plan-item select { margin-top: 2px; }
+  .plan-item .check { margin: 0 0 10px; font-size: 13px; }
+  .plan-item .sub { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; padding-bottom: 10px; }
+  .plan-item .acts { padding-bottom: 6px; white-space: nowrap; }
+  .plan-item .cat { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+  .plan-item .cat input { max-width: 200px; margin: 0; padding: 4px 8px; font-size: 13px; min-height: 0; }
+  .sum-big { font-size: 28px; font-weight: 700; }
+  .kv { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 14px; }
+  .kv span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .cat-bar { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; margin-top: 6px; }
+  .cat-bar .bar-track { grid-column: 1 / -1; margin: 0 0 4px; height: 6px; }
 
   .recur-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
   .recur-row:last-child { border-bottom: 0; }
@@ -210,7 +233,12 @@
       padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
       background: var(--surface); border-top: 1px solid var(--border);
     }
-    nav button { flex: 1; padding: 10px 4px; font-size: 14px; }
+    nav button { flex: 1; padding: 10px 2px; font-size: 13px; }
+    nav .long { display: none; }
+    nav .short { display: inline; }
+    .plan-item { grid-template-columns: 1fr 1fr; }
+    .plan-item .label-cell { grid-column: 1 / -1; }
+    .plan-item .sub { text-align: left; padding-bottom: 0; }
     nav button.active { box-shadow: none; background: var(--surface-2); }
 
     /* 16px inputs stop iOS from zooming on focus; bigger touch targets */
@@ -219,7 +247,7 @@
     button.link { padding: 8px 6px; font-size: 14px; }
     .seg { display: flex; }
     .seg button { flex: 1; padding: 8px 6px; }
-    form .row { grid-template-columns: 1fr 1fr; }
+    form .row, .plan-meta { grid-template-columns: 1fr 1fr; }
 
     .card { padding: 14px; }
     .grid.cols-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -285,7 +313,8 @@
     </div>
     <nav id="nav">
       <button data-tab="overview" class="active">Overview</button>
-      <button data-tab="transactions">Transactions</button>
+      <button data-tab="transactions"><span class="long">Transactions</span><span class="short">History</span></button>
+      <button data-tab="plan">Plan</button>
       <button data-tab="savings">Savings</button>
       <button data-tab="settings">Settings</button>
     </nav>
@@ -309,6 +338,10 @@
     <div class="card">
       <div class="flex between"><h2>Credit cards</h2><span class="muted small" id="cc-summary"></span></div>
       <div class="wallets" id="cc-list"></div>
+      <div id="inst-wrap" hidden style="margin-top:16px">
+        <h3>Installments</h3>
+        <div id="inst-list"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -328,6 +361,16 @@
         </div>
         <label style="margin-top:8px">Note<input id="f-note" placeholder="Optional"></label>
         <label class="check" id="f-repeat-wrap"><input type="checkbox" id="f-repeat"> <span id="f-repeat-label">Monthly expense (adds itself every month on this day)</span></label>
+        <div id="f-inst-wrap" hidden>
+          <label class="check"><input type="checkbox" id="f-inst"> Pay in installments</label>
+          <div class="row" id="f-inst-opts" hidden style="margin-top:8px">
+            <label>Months<select id="f-inst-months">
+              <option>3</option><option>6</option><option>9</option><option selected>12</option><option>18</option><option>24</option><option>36</option>
+            </select></label>
+            <label>Monthly add-on rate (%)<input id="f-inst-rate" type="number" step="0.01" min="0" value="0"></label>
+          </div>
+          <div class="small muted" id="f-inst-preview" style="margin-top:6px"></div>
+        </div>
         <div class="flex" style="margin-top:12px">
           <button class="btn primary" type="submit" id="f-submit">Add</button>
           <button class="btn" type="button" id="f-cancel" hidden>Cancel edit</button>
@@ -366,6 +409,7 @@
         <label>Type<select id="t-type">
           <option value="">All</option><option value="income">Revenue</option><option value="expense">Expense</option>
           <option value="transfer">Transfer</option><option value="adjust">Adjustment</option><option value="monthly">Monthly only</option>
+          <option value="installment">Installments only</option><option value="plan">Plan / trip expenses</option>
         </select></label>
         <button class="btn" id="t-clear">Show all months</button>
       </div>
@@ -378,6 +422,26 @@
       <div class="empty" id="t-empty" hidden>No entries match these filters</div>
       <div class="small" style="margin-top:12px"><span id="t-summary" class="muted"></span></div>
     </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="tab-plan" class="tab stack">
+    <div class="card">
+      <div class="flex between"><h2>Plans</h2><button class="btn primary" id="plan-new-btn">+ New plan</button></div>
+      <p class="small muted" style="margin:0 0 12px">Work out what a trip or big purchase will cost before you spend, then log what you actually spend against it.</p>
+      <form id="plan-form" hidden autocomplete="off" style="margin-bottom:12px">
+        <div class="row">
+          <label>Name<input id="pn-name" required placeholder="e.g. Japan 2027"></label>
+          <label>Template<select id="pn-template"><option value="trip">Trip</option><option value="blank">Blank</option></select></label>
+          <label>Start date<input id="pn-start" type="date"></label>
+          <label>End date<input id="pn-end" type="date"></label>
+          <label>People<input id="pn-people" type="number" min="1" value="1"></label>
+        </div>
+        <div class="flex" style="margin-top:8px"><button class="btn primary">Create plan</button><button type="button" class="btn" id="pn-cancel">Cancel</button></div>
+      </form>
+      <div id="plan-list" class="plan-list"></div>
+    </div>
+    <div id="plan-editor"></div>
   </section>
 
   <!-- SAVINGS -->
@@ -554,7 +618,7 @@
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
     income: ['Salary', 'Freelance', 'Business', 'Allowance', 'Gift', 'Refund', 'Interest', 'Other'],
   };
-  const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring'];
+  const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans'];
   const PALETTE = ['#4b4d26', '#80916d', '#9b6a5b', '#613a2b', '#cbb397'];
   const ISLAND_COLORS = ['#fbf7f1', '#ffffff', '#e9dfd0', '#dfe4d4', '#cbb397', '#80916d', '#9b6a5b', '#4b4d26', '#613a2b', '#221f18'];
   const BG_PRESETS = [
@@ -684,9 +748,9 @@
   // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
   // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], deleted: {} };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], deleted: {} };
   }
-  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], deleted: {}, ...s });
+  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], deleted: {}, ...s });
   function load() {
     const s = ls.json(KEY);
     return s ? normalize(s) : freshState();
@@ -753,11 +817,13 @@
       else if (credit) paid += amt;
     }
     const owed = -balanceOf(w.id);
+    // installments hold the whole remaining principal against the limit even before it's billed
+    const unbilled = state.installments.filter(p => p.walletId === w.id).reduce((s, p) => s + instProgress(p).unbilledPrincipal, 0);
     return {
-      owed, lastClose, nextClose: dayIn(nextYm(closeYm), w.closeDay), due,
+      owed, unbilled, lastClose, nextClose: dayIn(nextYm(closeYm), w.closeDay), due,
       stmt: Math.max(0, stmt), dueLeft: Math.max(0, Math.round((stmt - paid) * 100) / 100),
-      available: (Number(w.limit) || 0) - owed,
-      util: w.limit > 0 ? owed / w.limit * 100 : 0,
+      available: (Number(w.limit) || 0) - owed - unbilled,
+      util: w.limit > 0 ? (owed + unbilled) / w.limit * 100 : 0,
     };
   }
 
@@ -791,6 +857,7 @@
         <div class="name">${esc(w.name)}</div>
         <div class="owed">${peso(c.owed)}</div>
         <div class="line">owed of ${peso(Number(w.limit) || 0)} · ${peso(c.available)} available</div>
+        ${c.unbilled > 0 ? `<div class="line">+ ${peso(c.unbilled)} in installments not billed yet</div>` : ''}
         <div class="bar-track"><div class="bar-fill ${c.util >= 80 ? 'high' : ''}" style="width:${Math.max(0, Math.min(100, c.util))}%"></div></div>
         <div class="line">${c.util.toFixed(0)}% used${c.util >= 80 ? ' · high' : ''}</div>
         <div class="line" style="margin-top:6px">${line}</div>
@@ -849,8 +916,9 @@
       $('cc-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     if (act === 'del') {
-      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id);
-      if (used) { alert(`${w.name} has entries or monthly items. Delete those first, or keep the card.`); return; }
+      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id)
+        || state.installments.some(p => p.walletId === id);
+      if (used) { alert(`${w.name} has entries, monthly items or installments. Delete those first, or keep the card.`); return; }
       if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
     }
   });
@@ -874,7 +942,73 @@
         changed = true;
       }
     }
+    for (const p of state.installments) {
+      for (const o of instSchedule(p)) {
+        if (have.has(o.id) || o.id in state.deleted || o.date > t) continue;
+        state.txns.push({ id: o.id, type: 'expense', amount: o.amount, walletId: p.walletId, category: p.category, date: o.date,
+          note: `${p.note || p.category} (installment ${o.n}/${p.months})`, installmentId: p.id, planId: p.planId, u: 1 });
+        changed = true;
+      }
+    }
     return changed;
+  }
+
+  // ---------- installments ----------
+  // Each month's amortization is billed on the card's statement date, starting with the first
+  // statement on/after the purchase. Ids are plan#k so synced devices never double-bill.
+  const round2 = n => Math.round(n * 100) / 100;
+  const instMonthly = p => round2(p.total / p.months + p.total * (p.rate || 0) / 100);
+  const instPayable = p => round2(p.total + p.total * (p.rate || 0) / 100 * p.months);
+  function instSchedule(p) {
+    const card = state.wallets.find(w => w.id === p.walletId);
+    const closeDay = card?.closeDay || Number(p.purchaseDate.slice(8, 10));
+    let ym = p.purchaseDate.slice(0, 7);
+    if (dayIn(ym, closeDay) < p.purchaseDate) ym = nextYm(ym);
+    const monthly = instMonthly(p), out = [];
+    for (let k = 0; k < p.months; k++, ym = nextYm(ym)) {
+      const date = dayIn(ym, closeDay);
+      if (p.closedAt && date > p.closedAt) break;
+      out.push({ id: `${p.id}#${k}`, n: k + 1, date, amount: k === p.months - 1 ? round2(instPayable(p) - monthly * (p.months - 1)) : monthly });
+    }
+    return out;
+  }
+  function instProgress(p) {
+    const sched = instSchedule(p), billed = sched.filter(o => o.date <= today()).length;
+    const left = p.closedAt ? 0 : p.months - billed;
+    return { billed, left, unbilledPrincipal: round2(p.total / p.months * left), next: sched.find(o => o.date > today())?.date };
+  }
+
+  $('inst-list').addEventListener('click', e => {
+    const { act, id } = e.target.dataset; if (!id) return;
+    const p = state.installments.find(x => x.id === id);
+    const label = p.note || p.category;
+    if (act === 'payoff') {
+      const { unbilledPrincipal } = instProgress(p);
+      if (!confirm(`Pay off “${label}” early? The remaining ${peso(unbilledPrincipal)} is billed to the card today and no more monthly charges are added.`)) return;
+      p.closedAt = today(); p.u = now();
+      if (unbilledPrincipal > 0) state.txns.push({ id: p.id + '#payoff', type: 'expense', amount: unbilledPrincipal, walletId: p.walletId,
+        category: p.category, date: today(), note: `${label} (installment paid off)`, installmentId: p.id, planId: p.planId, u: now() });
+      save();
+    }
+    if (act === 'del' && confirm(`Delete the installment “${label}” and all of its charges? Use this only if it was entered by mistake.`)) {
+      const ids = state.txns.filter(t => t.installmentId === id).map(t => t.id);
+      state.txns = state.txns.filter(t => t.installmentId !== id);
+      state.installments = state.installments.filter(x => x.id !== id);
+      forget(id, ...ids, ...instSchedule(p).map(o => o.id));
+      save();
+    }
+  });
+
+  function renderInstallments() {
+    const active = state.installments.map(p => [p, instProgress(p)]).sort((a, b) => (a[1].left === 0) - (b[1].left === 0));
+    $('inst-wrap').hidden = !active.length;
+    $('inst-list').innerHTML = active.map(([p, s]) => `<div class="recur-row">
+        <div><strong>${esc(p.note || p.category)}</strong> <span class="neg">${peso(instMonthly(p))}/mo</span>
+          <div class="tag">${esc(walletName(p.walletId))} · ${peso(p.total)} over ${p.months} months${p.rate ? ` at ${p.rate}%/mo` : ' at 0%'} ·
+          ${s.left === 0 ? (p.closedAt ? 'paid off' : 'fully billed') : `${s.billed} of ${p.months} billed · ${peso(s.unbilledPrincipal)} left${s.next ? ` · next ${fmtDate(s.next)}` : ''}`}</div>
+          <div class="bar-track" style="max-width:260px"><div class="bar-fill" style="width:${(p.months - s.left) / p.months * 100}%"></div></div></div>
+        <span>${s.left > 0 ? `<button class="link" data-act="payoff" data-id="${p.id}">Pay off now</button>` : ''}<button class="link danger" data-act="del" data-id="${p.id}">Delete</button></span>
+      </div>`).join('');
   }
   function nextDue(r) {
     let ym = thisMonth() < r.start ? r.start : thisMonth();
@@ -910,7 +1044,7 @@
 
   // ---------- tabs ----------
   $('nav').addEventListener('click', e => {
-    const tab = e.target.dataset?.tab; if (!tab) return;
+    const tab = e.target.closest('[data-tab]')?.dataset.tab; if (!tab) return;
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
     renderCharts();
@@ -926,6 +1060,7 @@
     $('f-to-wrap').hidden = type !== 'transfer';
     $('f-cat-wrap').hidden = type === 'transfer';
     $('f-repeat-wrap').hidden = type === 'transfer' || !!editingId;
+    updateInstallmentUi();
     $('f-repeat-label').textContent = type === 'income'
       ? 'Monthly revenue (adds itself every month on this day)'
       : 'Monthly expense (adds itself every month on this day)';
@@ -938,8 +1073,27 @@
   }
   $('type-seg').addEventListener('click', e => { if (e.target.dataset.type) setType(e.target.dataset.type); });
 
+  function updateInstallmentUi() {
+    const show = entryType === 'expense' && !editingId && isCreditId($('f-wallet').value);
+    $('f-inst-wrap').hidden = !show;
+    const on = show && $('f-inst').checked;
+    $('f-inst-opts').hidden = !on;
+    if (on) $('f-repeat').checked = false;
+    const amount = parseFloat($('f-amount').value);
+    if (on && amount > 0) {
+      const p = { total: amount, months: Number($('f-inst-months').value), rate: parseFloat($('f-inst-rate').value) || 0 };
+      $('f-inst-preview').textContent = `${peso(instMonthly(p))}/month for ${p.months} months · total ${peso(instPayable(p))}`
+        + (p.rate ? ` (${peso(instPayable(p) - p.total)} interest)` : '') + ' · billed on each statement';
+    } else $('f-inst-preview').textContent = '';
+  }
+  ['f-wallet', 'f-inst', 'f-inst-months', 'f-inst-rate', 'f-amount'].forEach(id => $(id).addEventListener('input', updateInstallmentUi));
+  $('f-inst').addEventListener('change', updateInstallmentUi);
+  $('f-repeat').addEventListener('change', () => { if ($('f-repeat').checked) { $('f-inst').checked = false; updateInstallmentUi(); } });
+
+  let pendingPlan = null;   // { planId, planItemId } while logging a plan expense
   function resetForm() {
     editingId = null;
+    pendingPlan = null;
     $('txn-form').reset();
     $('f-date').value = today();
     $('form-title').textContent = 'Add entry';
@@ -965,10 +1119,16 @@
       u: now(),
     };
     if (t.type === 'transfer' && t.walletId === t.toWalletId) { alert('Pick two different wallets for a transfer.'); return; }
+    if (pendingPlan && !editingId) Object.assign(t, pendingPlan);
     if (editingId) {
       const old = state.txns.find(x => x.id === editingId);
-      if (old?.recurringId) t.recurringId = old.recurringId;
+      ['recurringId', 'installmentId', 'planId', 'planItemId'].forEach(k => { if (old?.[k]) t[k] = old[k]; });
       state.txns = state.txns.map(x => x.id === editingId ? t : x);
+    } else if (!$('f-inst-wrap').hidden && $('f-inst').checked) {
+      // the plan bills itself onto the card each statement, so don't push t
+      state.installments.push({ id: uid(), walletId: t.walletId, category: t.category, note: t.note, total: amount,
+        months: Number($('f-inst-months').value), rate: parseFloat($('f-inst-rate').value) || 0, purchaseDate: t.date,
+        planId: t.planId, planItemId: t.planItemId, u: now() });
     } else if ($('f-repeat').checked && t.type !== 'transfer') {
       // the rule adds this month's entry itself (and future ones), so don't push t
       state.recurring.push({ id: uid(), type: t.type, amount, walletId: t.walletId, category: t.category, note: t.note,
@@ -976,8 +1136,10 @@
     } else {
       state.txns.push(t);
     }
+    const fromPlan = pendingPlan && !editingId;
     resetForm();
     save();
+    if (fromPlan) document.querySelector('#nav button[data-tab="plan"]').click();
   });
 
   function startEdit(id) {
@@ -1029,14 +1191,17 @@
     const m = $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
     const rows = state.txns
       .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w)
-        && (!ty || (ty === 'monthly' ? t.recurringId : t.type === ty)))
+        && (!ty || (ty === 'monthly' ? t.recurringId : ty === 'installment' ? t.installmentId : ty === 'plan' ? t.planId : t.type === ty)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
     $('t-body').innerHTML = rows.map(t => {
       const sign = t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '';
       const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : '';
       const amt = t.type === 'adjust' ? peso(t.amount) : sign + peso(t.amount);
       const wallet = t.type === 'transfer' ? `${esc(walletName(t.walletId))} → ${esc(walletName(t.toWalletId))}` : esc(walletName(t.walletId));
-      const cat = esc(t.category) + (t.recurringId ? ' <span class="tag" title="Monthly">↻ monthly</span>' : '');
+      const plan = t.planId && state.plans.find(p => p.id === t.planId);
+      const cat = esc(t.category) + (t.recurringId ? ' <span class="tag" title="Monthly">↻ monthly</span>' : '')
+        + (t.installmentId ? ' <span class="tag">▦ installment</span>' : '')
+        + (plan ? ` <span class="tag">✈ ${esc(plan.name)}</span>` : '');
       const label = t.type === 'transfer' && isCreditId(t.toWalletId) ? 'Card payment'
         : t.type === 'income' && isCreditId(t.walletId) ? 'Card refund' : TYPE_LABEL[t.type];
       return `<tr><td class="c-date">${t.date}</td><td class="c-type">${label}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${cat}</td>
@@ -1048,6 +1213,230 @@
     const exp = rows.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     $('t-summary').textContent = `${rows.length} entries · Revenue ${peso(inc)} · Expenses ${peso(exp)} · Net ${peso(inc - exp)}`;
   }
+
+  // ---------- plans (trip / purchase calculator) ----------
+  const TRIP_ITEMS = [
+    ['Flights', 'Transport', 'once', true],
+    ['Accommodation', 'Accommodation', 'night', false],
+    ['Food', 'Food', 'day', true],
+    ['Local transport', 'Transport', 'day', false],
+    ['Activities & tours', 'Entertainment', 'once', true],
+    ['Pasalubong & shopping', 'Shopping', 'once', false],
+    ['Travel insurance', 'Insurance', 'once', true],
+    ['Travel tax, visa & fees', 'Fees', 'once', true],
+  ];
+  const PLAN_CATS = [...CATS.expense, 'Accommodation', 'Insurance', 'Fees'];
+  let currentPlanId = null;
+
+  const planById = id => state.plans.find(p => p.id === id);
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 86400000);
+  const newItem = (label = '', category = 'Other', unit = 'once', perPerson = false) =>
+    ({ id: uid(), label, category, amount: 0, cur: 'PHP', unit, perPerson });
+  function planSpan(p) {
+    if (!p.start || !p.end || p.end < p.start) return { days: 1, nights: 1, dated: false };
+    const days = daysBetween(p.start, p.end) + 1;
+    return { days, nights: Math.max(1, days - 1), dated: true };
+  }
+  function itemCost(p, it) {
+    const { days, nights } = planSpan(p);
+    const fx = it.cur === 'FX' ? (Number(p.rate) || 0) : 1;
+    return (Number(it.amount) || 0) * fx * (it.unit === 'day' ? days : it.unit === 'night' ? nights : 1)
+      * (it.perPerson ? Math.max(1, p.people || 1) : 1);
+  }
+  // money actually spent against a plan (or one item): logged expenses + full cost of installment purchases
+  function planSpent(p, itemId) {
+    const match = x => x.planId === p.id && (!itemId || x.planItemId === itemId);
+    return state.txns.filter(t => match(t) && t.type === 'expense' && !t.installmentId).reduce((s, t) => s + t.amount, 0)
+      + state.installments.filter(match).reduce((s, i) => s + instPayable(i), 0);
+  }
+  function planTotals(p) {
+    const sub = p.items.reduce((s, it) => s + itemCost(p, it), 0);
+    const buffer = sub * (Number(p.buffer) || 0) / 100;
+    return { sub, buffer, total: sub + buffer, actual: planSpent(p), perPerson: (sub + buffer) / Math.max(1, p.people || 1) };
+  }
+
+  $('plan-new-btn').addEventListener('click', () => { $('plan-form').hidden = !$('plan-form').hidden; if (!$('plan-form').hidden) $('pn-name').focus(); });
+  $('pn-cancel').addEventListener('click', () => { $('plan-form').hidden = true; });
+  $('plan-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const trip = $('pn-template').value === 'trip';
+    const p = { id: uid(), name: $('pn-name').value.trim(), start: $('pn-start').value, end: $('pn-end').value,
+      people: Math.max(1, parseInt($('pn-people').value, 10) || 1), buffer: trip ? 10 : 0, currency: '', rate: 0,
+      items: trip ? TRIP_ITEMS.map(a => newItem(...a)) : [newItem()], u: now() };
+    state.plans.push(p); currentPlanId = p.id;
+    e.target.reset(); $('pn-people').value = 1; $('plan-form').hidden = true;
+    save();
+  });
+
+  function renderPlanList() {
+    $('plan-list').innerHTML = state.plans.map(p => `<button class="plan-tile ${p.id === currentPlanId ? 'active' : ''}" data-plan="${p.id}">
+        <strong>${esc(p.name)}</strong><div class="amt">${peso(planTotals(p).total)}</div>
+        <div class="tag">${p.start ? fmtDate(p.start) + (p.end ? ' – ' + fmtDate(p.end) : '') : 'No dates'} · ${p.people || 1} ${(p.people || 1) > 1 ? 'people' : 'person'}</div>
+      </button>`).join('') || '<div class="empty" style="padding:8px 0">No plans yet.</div>';
+  }
+
+  function renderPlans(force) {
+    if (currentPlanId && !planById(currentPlanId)) currentPlanId = null;
+    if (!currentPlanId && state.plans.length) currentPlanId = state.plans.at(-1).id;
+    renderPlanList();
+    const p = planById(currentPlanId), ed = $('plan-editor');
+    if (!p) { ed.innerHTML = ''; ed.dataset.plan = ''; return; }
+    const shape = p.id + '|' + p.items.map(i => i.id).join();
+    // don't rebuild the inputs someone is typing in; just refresh the numbers
+    if (!force && ed.dataset.plan === shape && ed.contains(document.activeElement)) { renderPlanNumbers(p); return; }
+    ed.dataset.plan = shape;
+    const opt = (v, cur, label) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+    ed.innerHTML = `
+      <div class="card">
+        <div class="flex between"><h2>${esc(p.name)}</h2>
+          <span><button class="link" data-pact="dup">Duplicate</button><button class="link danger" data-pact="del">Delete plan</button></span></div>
+        <div class="plan-meta">
+          <label>Name<input data-pf="name" value="${esc(p.name)}"></label>
+          <label>Start date<input type="date" data-pf="start" value="${p.start || ''}"></label>
+          <label>End date<input type="date" data-pf="end" value="${p.end || ''}"></label>
+          <label>People<input type="number" min="1" data-pf="people" value="${p.people || 1}"></label>
+          <label>Buffer for extras (%)<input type="number" min="0" step="1" data-pf="buffer" value="${p.buffer || 0}"></label>
+          <label>Foreign currency<input data-pf="currency" maxlength="3" placeholder="e.g. JPY" value="${esc(p.currency || '')}"></label>
+          <label ${p.currency ? '' : 'hidden'}>₱ per 1 ${esc(p.currency)}<input type="number" step="0.0001" min="0" data-pf="rate" value="${p.rate || ''}" placeholder="e.g. 0.38"></label>
+        </div>
+        <div class="small muted" id="plan-span" style="margin-top:8px"></div>
+      </div>
+      <div class="grid cols-2">
+        <div class="card">
+          <h2>Costs</h2>
+          <datalist id="plan-cats">${PLAN_CATS.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+          ${p.items.map(it => `<div class="plan-item" data-item="${it.id}">
+            <label class="label-cell">Item<input data-if="label" value="${esc(it.label)}" placeholder="What for?"></label>
+            <label>Amount<input type="number" min="0" step="0.01" data-if="amount" value="${it.amount || ''}" placeholder="0"></label>
+            <label ${p.currency ? '' : 'hidden'}>Currency<select data-if="cur">${opt('PHP', it.cur, 'PHP')}${opt('FX', it.cur, esc(p.currency))}</select></label>
+            <label>How often<select data-if="unit">${opt('once', it.unit, 'One-time')}${opt('day', it.unit, 'Per day')}${opt('night', it.unit, 'Per night')}</select></label>
+            <label class="check"><input type="checkbox" data-if="perPerson" ${it.perPerson ? 'checked' : ''}> Each person</label>
+            <div class="sub" data-sub="${it.id}"></div>
+            <div class="cat"><span class="tag">Category</span><input data-if="category" list="plan-cats" value="${esc(it.category)}">
+              <span class="tag" data-logged="${it.id}"></span>
+              <span class="acts" style="margin-left:auto"><button class="link" data-pact="log" data-item="${it.id}">Log spend</button><button class="link danger" data-pact="del-item" data-item="${it.id}">Remove</button></span></div>
+          </div>`).join('')}
+          <button class="btn" data-pact="add-item" style="margin-top:12px">+ Add item</button>
+        </div>
+        <div class="card" id="plan-summary"></div>
+      </div>`;
+    renderPlanNumbers(p);
+  }
+
+  function renderPlanNumbers(p) {
+    const { days, nights, dated } = planSpan(p);
+    $('plan-span').textContent = dated
+      ? `${days} day${days > 1 ? 's' : ''} · ${nights} night${nights > 1 ? 's' : ''} · ${p.people || 1} ${(p.people || 1) > 1 ? 'people' : 'person'} · per-day and per-night items multiply automatically`
+      : 'Add start and end dates so per-day and per-night items multiply by the length of the trip.';
+    for (const it of p.items) {
+      const sub = document.querySelector(`[data-sub="${it.id}"]`);
+      if (sub) sub.textContent = peso(itemCost(p, it));
+      const lg = document.querySelector(`[data-logged="${it.id}"]`), spent = planSpent(p, it.id);
+      if (lg) lg.textContent = spent > 0 ? `· logged ${peso(spent)}` : '';
+    }
+    const T = planTotals(p);
+    const byCat = {};
+    p.items.forEach(it => { const c = it.category || 'Other'; byCat[c] = (byCat[c] || 0) + itemCost(p, it); });
+    const cats = Object.entries(byCat).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const cash = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
+    const avgNet = lastMonths(6).map(monthTotals).reduce((s, t) => s + t.net, 0) / 6;
+    const goal = p.goalId && state.goals.find(g => g.id === p.goalId);
+    const saved = goal ? goalSaved(goal.id) : 0;
+    let monthsLeft = null;
+    if (p.start && p.start > today()) {
+      const [sy, sm] = p.start.split('-').map(Number), [ty, tm] = thisMonth().split('-').map(Number);
+      monthsLeft = Math.max(1, (sy - ty) * 12 + sm - tm);
+    }
+    const missingRate = p.currency && !p.rate && p.items.some(i => i.cur === 'FX');
+    $('plan-summary').innerHTML = `
+      <h2>Summary</h2>
+      <div class="sum-big">${peso(T.total)}</div>
+      <div class="muted small">${[(p.people || 1) > 1 ? `${peso(T.perPerson)} per person` : '', dated ? `${peso(T.total / days)} per day` : ''].filter(Boolean).join(' · ')}</div>
+      <div style="margin-top:12px">
+        <div class="kv"><span>Planned costs</span><span>${peso(T.sub)}</span></div>
+        ${p.buffer ? `<div class="kv"><span>Buffer for extras (${p.buffer}%)</span><span>${peso(T.buffer)}</span></div>` : ''}
+        ${missingRate ? `<div class="neg small">Set “₱ per 1 ${esc(p.currency)}” so the ${esc(p.currency)} items are counted.</div>` : ''}
+      </div>
+      ${cats.length ? '<h3 style="margin-top:16px">Where it goes</h3>' + cats.map(([c, v]) => `<div class="cat-bar"><span>${esc(c)}</span><span>${peso(v)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${v / T.sub * 100}%"></div></div></div>`).join('') : ''}
+      <h3 style="margin-top:16px">Can I afford it?</h3>
+      <div class="kv"><span>Cash in wallets now</span><span>${peso(cash)}</span></div>
+      ${T.total > 0 ? `<div class="small ${cash >= T.total ? 'pos' : 'muted'}">${cash >= T.total ? `✓ Covered, leaving ${peso(cash - T.total)}` : `${Math.max(0, cash / T.total * 100).toFixed(0)}% covered · short by ${peso(T.total - cash)}`}</div>` : ''}
+      ${avgNet > 0 && T.total > 0 ? `<div class="kv"><span>Saving your usual ${peso(avgNet)}/mo</span><span>${(T.total / avgNet).toFixed(1)} months</span></div>` : ''}
+      ${monthsLeft && T.total > 0 ? `<div class="kv"><span>To be ready by ${fmtDate(p.start)}</span><span>${peso(Math.max(0, T.total - saved) / monthsLeft)}/mo</span></div>` : ''}
+      ${goal ? `<div class="kv"><span>Goal “${esc(goal.name)}”</span><span>${peso(saved)} / ${peso(goal.target)}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${goal.target > 0 ? Math.min(100, saved / goal.target * 100) : 0}%"></div></div>
+          ${Math.abs(goal.target - T.total) > 0.5 ? `<button class="link" data-pact="goal-sync" style="padding-left:0">Update goal target to ${peso(T.total)}</button>` : ''}`
+        : T.total > 0 ? '<button class="btn" data-pact="goal" style="margin-top:8px">Create a savings goal for this</button>' : ''}
+      <h3 style="margin-top:16px">Actual spending</h3>
+      <div class="kv"><span>Logged so far</span><span>${peso(T.actual)} of ${peso(T.total)}</span></div>
+      <div class="bar-track"><div class="bar-fill ${T.actual > T.total ? 'high' : ''}" style="width:${T.total > 0 ? Math.min(100, T.actual / T.total * 100) : 0}%"></div></div>
+      <div class="small ${T.actual > T.total ? 'neg' : 'muted'}">${T.actual > T.total ? `Over plan by ${peso(T.actual - T.total)}`
+        : T.actual > 0 ? `${peso(T.total - T.actual)} left in the plan` : 'Use “Log spend” on an item, or the button below for anything else.'}</div>
+      <button class="btn" data-pact="log-any" style="margin-top:8px">Log a spend for this plan</button>`;
+  }
+
+  function logPlanExpense(p, itemId) {
+    const it = p.items.find(i => i.id === itemId);
+    document.querySelector('#nav button[data-tab="overview"]').click();
+    resetForm();
+    setType('expense');
+    pendingPlan = { planId: p.id, planItemId: it?.id };
+    if (it) {
+      $('f-cat').value = it.category;
+      $('f-note').value = `${p.name}: ${it.label}`;
+      const left = itemCost(p, it) - planSpent(p, it.id);
+      if (left > 0) $('f-amount').value = round2(left).toFixed(2);
+    } else $('f-note').value = p.name;
+    $('form-title').textContent = `Log spend for ${p.name}`;
+    $('f-cancel').hidden = false;
+    $('txn-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('f-amount').focus();
+  }
+
+  function onPlanField(e, persistNow) {
+    const p = planById(currentPlanId); if (!p) return;
+    const el = e.target, f = el.dataset.pf, itf = el.dataset.if;
+    if (f) {
+      p[f] = ['people', 'buffer', 'rate'].includes(f) ? (parseFloat(el.value) || (f === 'people' ? 1 : 0))
+        : f === 'currency' ? el.value.trim().toUpperCase() : el.value;
+    } else if (itf) {
+      const it = p.items.find(i => i.id === el.closest('[data-item]').dataset.item);
+      it[itf] = el.type === 'checkbox' ? el.checked : itf === 'amount' ? (parseFloat(el.value) || 0) : el.value;
+    } else return;
+    if (!persistNow) { renderPlanNumbers(p); renderPlanList(); return; }
+    p.u = now(); persist(); scheduleSync();
+    if (f === 'currency' || f === 'name') renderPlans(true); else { renderPlanNumbers(p); renderPlanList(); }
+  }
+  $('plan-editor').addEventListener('input', e => { if (e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onPlanField(e, false); });
+  $('plan-editor').addEventListener('change', e => onPlanField(e, true));
+  $('plan-list').addEventListener('click', e => {
+    const id = e.target.closest('[data-plan]')?.dataset.plan;
+    if (id) { currentPlanId = id; renderPlans(true); }
+  });
+  $('plan-editor').addEventListener('click', e => {
+    const act = e.target.dataset.pact; if (!act) return;
+    const p = planById(currentPlanId), itemId = e.target.dataset.item;
+    if (act === 'add-item') { p.items.push(newItem()); p.u = now(); save(); document.querySelector('#plan-editor .plan-item:last-of-type [data-if="label"]')?.focus(); }
+    if (act === 'del-item') { p.items = p.items.filter(i => i.id !== itemId); p.u = now(); save(); }
+    if (act === 'log' || act === 'log-any') logPlanExpense(p, itemId);
+    if (act === 'dup') {
+      const copy = { ...JSON.parse(JSON.stringify(p)), id: uid(), name: p.name + ' (copy)', goalId: undefined, u: now() };
+      copy.items.forEach(i => { i.id = uid(); });
+      state.plans.push(copy); currentPlanId = copy.id; save();
+    }
+    if (act === 'del' && confirm(`Delete the plan “${p.name}”? Expenses you logged for it stay in your history.`)) {
+      state.plans = state.plans.filter(x => x.id !== p.id); forget(p.id); currentPlanId = null; save();
+    }
+    if (act === 'goal') {
+      const g = { id: uid(), name: p.name, target: round2(planTotals(p).total), deadline: p.start || '', u: now() };
+      state.goals.push(g); p.goalId = g.id; p.u = now(); save();
+    }
+    if (act === 'goal-sync') {
+      const g = state.goals.find(x => x.id === p.goalId);
+      g.target = round2(planTotals(p).total); g.u = now(); save();
+    }
+  });
 
   // ---------- goals ----------
   $('goal-form').addEventListener('submit', e => {
@@ -1353,7 +1742,8 @@
   }
   const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort()]);
   // A profile that has never been used: default wallets only, nothing entered or edited.
-  const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length && s.wallets.every(w => !w.u && !w.opening);
+  const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length
+    && !s.installments.length && !s.plans.length && s.wallets.every(w => !w.u && !w.opening);
 
   let syncing = false, syncAgain = false, syncTimer;
   function scheduleSync() {
@@ -1570,6 +1960,8 @@
     renderWalletOptions();
     setType(entryType);
     renderRecurring();
+    renderInstallments();
+    renderPlans();
     renderTxns();
     renderGoals();
 
