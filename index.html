@@ -799,13 +799,29 @@
   const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`; };
   const daysUntil = d => Math.round((new Date(d + 'T00:00') - new Date(today() + 'T00:00')) / 86400000);
 
+  // the statement that closed on/before `date`, and when that statement is due
+  function closeBefore(w, date) {
+    let ym = date.slice(0, 7);
+    if (dayIn(ym, w.closeDay) > date) ym = prevYm(ym);
+    return { ym, close: dayIn(ym, w.closeDay), due: dayIn(w.dueDay > w.closeDay ? ym : nextYm(ym), w.dueDay) };
+  }
+  // Date the card was added (older cards: read from the timestamp at the start of their id).
+  function cardAddedOn(w) {
+    if (w.addedOn) return w.addedOn;
+    const d = new Date(parseInt(w.id.slice(0, -5), 36));
+    return isNaN(d) ? today() : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  // The "owed now" entered when adding a card belongs to the previous statement only if that
+  // statement wasn't due yet; otherwise it was already paid, so the balance is this cycle's spending.
+  function openingDate(w) {
+    const added = cardAddedOn(w), prev = closeBefore(w, added);
+    return prev.due >= added ? prev.close : added;
+  }
+
   function cardStatus(w) {
-    let closeYm = thisMonth();
-    if (dayIn(closeYm, w.closeDay) > today()) closeYm = prevYm(closeYm);
-    const lastClose = dayIn(closeYm, w.closeDay);
-    const due = dayIn(w.dueDay > w.closeDay ? closeYm : nextYm(closeYm), w.dueDay);
+    const { ym: closeYm, close: lastClose, due } = closeBefore(w, today());
     // what was owed when the last statement closed, minus payments/credits made since
-    let stmt = -(Number(w.opening) || 0), paid = 0;
+    let stmt = openingDate(w) <= lastClose ? -(Number(w.opening) || 0) : 0, paid = 0;
     for (const x of state.txns) {
       const credit = (x.type === 'transfer' && x.toWalletId === w.id) || (x.type === 'income' && x.walletId === w.id)
         || (x.type === 'adjust' && x.walletId === w.id && x.amount > 0);
@@ -900,7 +916,7 @@
       u: now(),
     };
     if (editingCard) Object.assign(state.wallets.find(w => w.id === editingCard), fields);
-    else state.wallets.push({ id: uid(), kind: 'credit', opening: -(parseFloat($('cc-owed').value) || 0), ...fields });
+    else state.wallets.push({ id: uid(), kind: 'credit', opening: -(parseFloat($('cc-owed').value) || 0), addedOn: today(), ...fields });
     resetCardForm();
     save();
   });
