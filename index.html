@@ -204,7 +204,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Wallet Tracker</h1>
+    <div><h1>Wallet Tracker</h1><div id="sync-badge" class="muted small"></div></div>
     <nav id="nav">
       <button data-tab="overview" class="active">Overview</button>
       <button data-tab="transactions">Transactions</button>
@@ -344,6 +344,29 @@
     </div>
 
     <div class="card">
+      <h2>Sync between devices</h2>
+      <div id="sync-off">
+        <p class="note-box">Keeps your phone and PC in step automatically by saving to a private Gist on your GitHub account. Set it up once on each device with the same token.</p>
+        <ol class="small" style="padding-left:20px;color:var(--text-2)">
+          <li>Open <a href="https://github.com/settings/tokens/new?scopes=gist&description=Wallet%20Tracker%20sync" target="_blank" rel="noopener">GitHub → New token</a> (the “gist” box is already ticked; tick nothing else).</li>
+          <li>Set Expiration to “No expiration” (or a date you’ll remember), click Generate, and copy the token.</li>
+          <li>Paste it below and click Connect. Do the same on your other device.</li>
+        </ol>
+        <div class="flex">
+          <input id="sync-token" type="password" placeholder="ghp_…" autocomplete="off" style="flex:1;min-width:200px;margin:0">
+          <button class="btn primary" id="sync-connect">Connect</button>
+        </div>
+      </div>
+      <div id="sync-on" hidden>
+        <p id="sync-status" class="small"></p>
+        <div class="flex">
+          <button class="btn" id="sync-now">Sync now</button>
+          <button class="btn danger" id="sync-disconnect">Disconnect this device</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Backup</h2>
       <p class="note-box">Your data is stored only in this browser. Clearing site data or switching browsers will lose it, so export a backup regularly.</p>
       <div class="flex">
@@ -366,6 +389,7 @@
 <script>
 (() => {
   const KEY = 'walletTracker.v1';
+  const COLS = ['wallets', 'txns', 'goals', 'goalEntries'];
   const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
   const CATS = {
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
@@ -387,15 +411,21 @@
   };
 
   // ---------- state ----------
+  // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
+  // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [] };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], deleted: {} };
   }
+  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], deleted: {}, ...s });
   function load() {
-    try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch {}
+    try { const raw = localStorage.getItem(KEY); if (raw) return normalize(JSON.parse(raw)); } catch {}
     return freshState();
   }
   let state = load();
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} render(); }
+  const now = () => Date.now();
+  const forget = (...ids) => ids.forEach(id => { state.deleted[id] = now(); });
+  function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
+  function save() { persist(); render(); scheduleSync(); }
 
   const walletName = id => state.wallets.find(w => w.id === id)?.name ?? '(deleted)';
 
@@ -473,6 +503,7 @@
       category: entryType === 'transfer' ? 'Transfer' : ($('f-cat').value.trim() || 'Other'),
       date: $('f-date').value || today(),
       note: $('f-note').value.trim(),
+      u: now(),
     };
     if (t.type === 'transfer' && t.walletId === t.toWalletId) { alert('Pick two different wallets for a transfer.'); return; }
     if (editingId) state.txns = state.txns.map(x => x.id === editingId ? t : x);
@@ -507,7 +538,7 @@
     if (isNaN(actual)) { alert('Not a valid number.'); return; }
     const diff = Math.round((actual - current) * 100) / 100;
     if (diff === 0) return;
-    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: `Set to ${peso(actual)}` });
+    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: `Set to ${peso(actual)}`, u: now() });
     save();
   }
 
@@ -518,7 +549,7 @@
   $('t-body').addEventListener('click', e => {
     const id = e.target.dataset.id; if (!id) return;
     if (e.target.dataset.act === 'edit') startEdit(id);
-    if (e.target.dataset.act === 'del' && confirm('Delete this entry?')) { state.txns = state.txns.filter(t => t.id !== id); save(); }
+    if (e.target.dataset.act === 'del' && confirm('Delete this entry?')) { state.txns = state.txns.filter(t => t.id !== id); forget(id); save(); }
   });
 
   const TYPE_LABEL = { income: 'Revenue', expense: 'Expense', transfer: 'Transfer', adjust: 'Adjustment' };
@@ -546,7 +577,7 @@
   // ---------- goals ----------
   $('goal-form').addEventListener('submit', e => {
     e.preventDefault();
-    state.goals.push({ id: uid(), name: $('g-name').value.trim(), target: parseFloat($('g-target').value), deadline: $('g-date').value || '' });
+    state.goals.push({ id: uid(), name: $('g-name').value.trim(), target: parseFloat($('g-target').value), deadline: $('g-date').value || '', u: now() });
     e.target.reset();
     save();
   });
@@ -561,10 +592,11 @@
       if (input === null) return;
       const n = parseFloat(input.replace(/[₱,\s]/g, ''));
       if (!(n > 0)) { alert('Enter a positive amount.'); return; }
-      state.goalEntries.push({ id: uid(), goalId: id, amount: act === 'add' ? n : -n, date: today() });
+      state.goalEntries.push({ id: uid(), goalId: id, amount: act === 'add' ? n : -n, date: today(), u: now() });
       save();
     }
     if (act === 'del' && confirm(`Delete goal “${g.name}” and its history?`)) {
+      forget(id, ...state.goalEntries.filter(x => x.goalId === id).map(x => x.id));
       state.goals = state.goals.filter(x => x.id !== id);
       state.goalEntries = state.goalEntries.filter(x => x.goalId !== id);
       save();
@@ -594,7 +626,7 @@
   // ---------- settings ----------
   $('wallet-form').addEventListener('submit', e => {
     e.preventDefault();
-    state.wallets.push({ id: uid(), name: $('w-name').value.trim(), opening: parseFloat($('w-open').value) || 0 });
+    state.wallets.push({ id: uid(), name: $('w-name').value.trim(), opening: parseFloat($('w-open').value) || 0, u: now() });
     e.target.reset(); $('w-open').value = 0;
     save();
   });
@@ -603,16 +635,16 @@
     const { act, id } = e.target.dataset; if (!id) return;
     const w = state.wallets.find(w => w.id === id);
     if (act === 'rename') {
-      const name = prompt('Wallet name:', w.name); if (name && name.trim()) { w.name = name.trim(); save(); }
+      const name = prompt('Wallet name:', w.name); if (name && name.trim()) { w.name = name.trim(); w.u = now(); save(); }
     }
     if (act === 'opening') {
       const v = prompt(`Starting balance for ${w.name} (₱):`, w.opening);
-      if (v !== null && !isNaN(parseFloat(v))) { w.opening = parseFloat(v); save(); }
+      if (v !== null && !isNaN(parseFloat(v))) { w.opening = parseFloat(v); w.u = now(); save(); }
     }
     if (act === 'del') {
       const used = state.txns.some(t => t.walletId === id || t.toWalletId === id);
       if (used) { alert(`${w.name} has entries. Delete those first, or keep the wallet.`); return; }
-      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); save(); }
+      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
     }
   });
 
@@ -636,14 +668,145 @@
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.wallets) || !Array.isArray(data.txns)) throw new Error('Not a Wallet Tracker backup');
       if (!confirm('Replace all current data with this backup?')) return;
-      state = { goals: [], goalEntries: [], ...data };
+      // tombstone everything currently here so a synced copy doesn't bring it back
+      const old = COLS.flatMap(c => state[c].map(r => r.id));
+      state = normalize(data);
+      const keep = new Set(COLS.flatMap(c => state[c].map(r => r.id)));
+      forget(...old.filter(id => !keep.has(id)));
       save();
     } catch (err) { alert('Import failed: ' + err.message); }
     e.target.value = '';
   });
   $('b-reset').addEventListener('click', () => {
-    if (confirm('Erase ALL wallets, entries and goals? This cannot be undone.')) { state = freshState(); save(); }
+    if (!confirm('Erase ALL wallets, entries and goals? This cannot be undone.' + (syncCfg ? ' Your other synced devices will be erased too.' : ''))) return;
+    const old = COLS.flatMap(c => state[c].map(r => r.id));
+    state = { ...freshState(), deleted: state.deleted };
+    forget(...old);
+    save();
   });
+
+  // ---------- sync via a private GitHub Gist ----------
+  const SYNC_KEY = KEY + '.sync';
+  const GIST_FILE = 'wallet-tracker.json';
+  let syncCfg = (() => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || null; } catch { return null; } })();
+  const saveCfg = () => { try { syncCfg ? localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)) : localStorage.removeItem(SYNC_KEY); } catch {} };
+
+  async function gh(path, opts = {}) {
+    const res = await fetch('https://api.github.com' + path, {
+      cache: 'no-store', ...opts,
+      headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + syncCfg.token },
+    });
+    if (res.status === 401) throw new Error('GitHub rejected the token (expired or wrong).');
+    if (res.status === 403 || res.status === 404) throw new Error(`GitHub said ${res.status}. Check the token has the “gist” permission.`);
+    if (!res.ok) throw new Error(`GitHub error ${res.status}`);
+    return res.json();
+  }
+  async function readGist(id) {
+    const g = await gh('/gists/' + id);
+    const f = g.files?.[GIST_FILE];
+    if (!f) return null;
+    const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+    return normalize(JSON.parse(text));
+  }
+  async function findGist() {
+    for (let page = 1; page <= 10; page++) {
+      const list = await gh(`/gists?per_page=100&page=${page}`);
+      const hit = list.find(g => g.files?.[GIST_FILE]);
+      if (hit) return hit.id;
+      if (list.length < 100) break;
+    }
+    return null;
+  }
+  const gistBody = data => ({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } });
+
+  function merge(a, b) {
+    const deleted = { ...a.deleted };
+    for (const [id, ts] of Object.entries(b.deleted)) deleted[id] = Math.max(deleted[id] || 0, ts);
+    const out = { deleted };
+    for (const col of COLS) {
+      const m = new Map();
+      for (const r of [...a[col], ...b[col]]) {
+        const cur = m.get(r.id);
+        if (!cur || (r.u || 0) > (cur.u || 0)) m.set(r.id, r);
+      }
+      out[col] = [...m.values()].filter(r => !(r.id in deleted));
+    }
+    return out;
+  }
+  const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort()]);
+  // A device that has never been used: default wallets only, nothing entered or edited.
+  const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && s.wallets.every(w => !w.u && !w.opening);
+
+  let syncing = false, syncAgain = false, syncTimer;
+  function scheduleSync() {
+    if (!syncCfg) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(runSync, 1500);
+  }
+  async function runSync() {
+    if (!syncCfg?.gistId || !navigator.onLine) { renderSync(); return; }
+    if (syncing) { syncAgain = true; return; }
+    syncing = true; renderSync('Syncing…');
+    try {
+      const remote = await readGist(syncCfg.gistId) || normalize({});
+      const merged = merge(state, remote);   // uses the latest local state, after the await
+      if (sig(merged) !== sig(state)) { state = normalize(merged); persist(); render(); }
+      if (sig(merged) !== sig(remote)) await gh('/gists/' + syncCfg.gistId, { method: 'PATCH', body: JSON.stringify(gistBody(merged)) });
+      syncCfg.lastSync = now(); syncCfg.error = '';
+    } catch (err) { syncCfg.error = err.message; }
+    if (syncCfg) saveCfg();
+    syncing = false; renderSync();
+    if (syncAgain) { syncAgain = false; runSync(); }
+  }
+
+  async function connectSync(token) {
+    syncCfg = { token };
+    renderSync('Connecting…');
+    try {
+      const id = await findGist();
+      if (id) {
+        syncCfg.gistId = id;
+        const remote = await readGist(id);
+        if (remote && (isPristine(state) || confirm('Found synced data on GitHub.\n\nOK = replace what’s on this device with it\nCancel = merge both (wallets may appear twice)'))) {
+          state = remote; persist(); render();
+        }
+      } else {
+        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Wallet Tracker sync data (do not edit)', public: false, ...gistBody(state) }) });
+        syncCfg.gistId = g.id;
+      }
+      saveCfg();
+      $('sync-token').value = '';
+      runSync();
+    } catch (err) {
+      syncCfg = null; saveCfg(); renderSync();
+      alert('Could not connect: ' + err.message);
+    }
+  }
+
+  function renderSync(msg) {
+    $('sync-off').hidden = !!syncCfg;
+    $('sync-on').hidden = !syncCfg;
+    if (!syncCfg) { $('sync-badge').textContent = ''; return; }
+    const time = syncCfg.lastSync && new Date(syncCfg.lastSync).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+    let text = msg || (syncCfg.error ? 'Sync failed: ' + syncCfg.error : time ? 'Synced ' + time : 'Not synced yet');
+    if (!msg && !navigator.onLine) text = 'Offline: changes will sync when you’re back online';
+    $('sync-status').textContent = text;
+    $('sync-badge').textContent = msg || (!navigator.onLine ? 'Offline' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
+  }
+
+  $('sync-connect').addEventListener('click', () => {
+    const token = $('sync-token').value.trim();
+    if (!token) { alert('Paste your GitHub token first.'); return; }
+    connectSync(token);
+  });
+  $('sync-now').addEventListener('click', runSync);
+  $('sync-disconnect').addEventListener('click', () => {
+    if (!confirm('Stop syncing on this device? Your data stays here and on GitHub.')) return;
+    syncCfg = null; saveCfg(); renderSync();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });
+  addEventListener('online', runSync);
+  addEventListener('offline', () => renderSync());
 
   // theme
   try { const t = localStorage.getItem(KEY + '.theme'); if (t) { document.documentElement.dataset.theme = t; $('theme').value = t; } } catch {}
@@ -809,6 +972,8 @@
   $('cat-month').value = thisMonth();
   $('t-month').value = thisMonth();
   render();
+  renderSync();
+  runSync();
 })();
 </script>
 </body>
