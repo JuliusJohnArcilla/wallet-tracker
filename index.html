@@ -1270,6 +1270,11 @@
     const buffer = sub * (Number(p.buffer) || 0) / 100;
     return { sub, buffer, total: sub + buffer, actual: planSpent(p), perPerson: (sub + buffer) / Math.max(1, p.people || 1) };
   }
+  // Logged spending has already left the wallets, so only what's still to spend comes off the balance.
+  function planBalanceAfter(p, cash) {
+    const T = planTotals(p), left = Math.max(0, T.total - T.actual);
+    return { left, after: cash - left };
+  }
 
   $('plan-new-btn').addEventListener('click', () => { $('plan-form').hidden = !$('plan-form').hidden; if (!$('plan-form').hidden) $('pn-name').focus(); });
   $('pn-cancel').addEventListener('click', () => { $('plan-form').hidden = true; });
@@ -1285,10 +1290,12 @@
   });
 
   function renderPlanList() {
-    $('plan-list').innerHTML = state.plans.map(p => `<button class="plan-tile ${p.id === currentPlanId ? 'active' : ''}" data-plan="${p.id}">
+    const cash = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
+    $('plan-list').innerHTML = state.plans.map(p => { const { after } = planBalanceAfter(p, cash); return `<button class="plan-tile ${p.id === currentPlanId ? 'active' : ''}" data-plan="${p.id}">
         <strong>${esc(p.name)}</strong><div class="amt">${peso(planTotals(p).total)}</div>
+        <div class="small">Balance after: <span class="${after < 0 ? 'neg' : 'pos'}">${peso(after)}</span></div>
         <div class="tag">${p.start ? fmtDate(p.start) + (p.end ? ' – ' + fmtDate(p.end) : '') : 'No dates'} · ${p.people || 1} ${(p.people || 1) > 1 ? 'people' : 'person'}</div>
-      </button>`).join('') || '<div class="empty" style="padding:8px 0">No plans yet.</div>';
+      </button>`; }).join('') || '<div class="empty" style="padding:8px 0">No plans yet.</div>';
   }
 
   function renderPlans(force) {
@@ -1355,6 +1362,8 @@
     p.items.forEach(it => { const c = it.category || 'Other'; byCat[c] = (byCat[c] || 0) + itemCost(p, it); });
     const cats = Object.entries(byCat).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const cash = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
+    const owed = creditCards().reduce((s, w) => s - balanceOf(w.id), 0);
+    const { left, after } = planBalanceAfter(p, cash);
     const avgNet = lastMonths(6).map(monthTotals).reduce((s, t) => s + t.net, 0) / 6;
     const goal = p.goalId && state.goals.find(g => g.id === p.goalId);
     const saved = goal ? goalSaved(goal.id) : 0;
@@ -1376,8 +1385,12 @@
       ${cats.length ? '<h3 style="margin-top:16px">Where it goes</h3>' + cats.map(([c, v]) => `<div class="cat-bar"><span>${esc(c)}</span><span>${peso(v)}</span>
         <div class="bar-track"><div class="bar-fill" style="width:${v / T.sub * 100}%"></div></div></div>`).join('') : ''}
       <h3 style="margin-top:16px">Can I afford it?</h3>
-      <div class="kv"><span>Cash in wallets now</span><span>${peso(cash)}</span></div>
-      ${T.total > 0 ? `<div class="small ${cash >= T.total ? 'pos' : 'muted'}">${cash >= T.total ? `✓ Covered, leaving ${peso(cash - T.total)}` : `${Math.max(0, cash / T.total * 100).toFixed(0)}% covered · short by ${peso(T.total - cash)}`}</div>` : ''}
+      <div class="kv"><span>Total balance</span><span>${peso(cash)}</span></div>
+      <div class="kv"><span>− ${T.actual > 0 ? 'Still to spend on this plan' : 'Planned costs'}</span><span>${peso(left)}</span></div>
+      <div class="kv" style="border-top:1px solid var(--grid);margin-top:4px;padding-top:8px"><strong>Balance after this plan</strong>
+        <span class="${after < 0 ? 'neg' : 'pos'}" style="font-size:18px">${peso(after)}</span></div>
+      ${creditCards().length ? `<div class="kv small"><span>…and after paying card debt (${peso(owed)})</span><span class="${after - owed < 0 ? 'neg' : ''}">${peso(after - owed)}</span></div>` : ''}
+      ${left > 0 ? `<div class="small ${after >= 0 ? 'pos' : 'muted'}">${after >= 0 ? '✓ Your current balance covers it' : `${Math.max(0, cash / left * 100).toFixed(0)}% covered · short by ${peso(-after)}`}</div>` : ''}
       ${avgNet > 0 && T.total > 0 ? `<div class="kv"><span>Saving your usual ${peso(avgNet)}/mo</span><span>${(T.total / avgNet).toFixed(1)} months</span></div>` : ''}
       ${monthsLeft && T.total > 0 ? `<div class="kv"><span>To be ready by ${fmtDate(p.start)}</span><span>${peso(Math.max(0, T.total - saved) / monthsLeft)}/mo</span></div>` : ''}
       ${goal ? `<div class="kv"><span>Goal “${esc(goal.name)}”</span><span>${peso(saved)} / ${peso(goal.target)}</span></div>
