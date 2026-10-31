@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wallet Tracker</title>
+<meta name="theme-color" content="#2a78d6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Wallets">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="vendor/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-2: #f0efec;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6;
+    --series-1: #2a78d6;   /* income / primary */
+    --series-2: #eb6834;   /* expense */
+    --good: #006300;
+    --bad: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --surface-2: #262624;
+      --text: #f0efec;
+      --text-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --accent: #3987e5;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --good: #0ca30c;
+      --bad: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #262624;
+    --text: #f0efec;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --good: #0ca30c;
+    --bad: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-2); font-weight: 600; }
+
+  nav { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; flex-wrap: wrap; }
+  nav button { border: 0; background: transparent; color: var(--text-2); padding: 6px 12px; border-radius: 7px; cursor: pointer; font: inherit; }
+  nav button.active { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .grid { display: grid; gap: 12px; }
+  .cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .stack > * + * { margin-top: 12px; }
+
+  .stat .label { color: var(--text-2); font-size: 13px; }
+  .stat .value { font-size: 24px; font-weight: 650; margin-top: 2px; }
+  .pos { color: var(--good); }
+  .neg { color: var(--bad); }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  .wallets { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .wallet { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); }
+  .wallet .name { font-weight: 600; }
+  .wallet .bal { font-size: 20px; font-weight: 650; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+
+  form .row { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  label { display: block; font-size: 13px; color: var(--text-2); }
+  input, select, textarea {
+    width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; color: var(--text);
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.btn {
+    font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.danger { color: var(--bad); }
+  button.link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px 4px; font: inherit; font-size: 13px; }
+  button.link.danger { color: var(--bad); }
+
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 3px; margin-bottom: 12px; }
+  .seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; cursor: pointer; font: inherit; color: var(--text-2); }
+  .seg button.active { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .toolbar label { min-width: 150px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { color: var(--text-2); font-weight: 600; font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.note { white-space: normal; min-width: 120px; color: var(--text-2); }
+
+  .chart-box { position: relative; height: 280px; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+  .bar-track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+  .bar-fill { height: 100%; background: var(--series-1); border-radius: 4px; }
+
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .between { justify-content: space-between; }
+  .note-box { font-size: 13px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+
+  /* ---------- phone ---------- */
+  @media (max-width: 640px) {
+    body { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+    .wrap { padding: 12px 16px calc(84px + env(safe-area-inset-bottom)); padding-top: calc(12px + env(safe-area-inset-top)); }
+    header { margin-bottom: 8px; }
+
+    /* bottom tab bar */
+    nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; border-radius: 0; gap: 0; flex-wrap: nowrap;
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+      background: var(--surface); border-top: 1px solid var(--border);
+    }
+    nav button { flex: 1; padding: 10px 4px; font-size: 14px; }
+    nav button.active { box-shadow: none; background: var(--surface-2); }
+
+    /* 16px inputs stop iOS from zooming on focus; bigger touch targets */
+    input, select, textarea { font-size: 16px; padding: 10px 12px; min-height: 44px; }
+    button.btn { min-height: 44px; padding: 10px 16px; }
+    button.link { padding: 8px 6px; font-size: 14px; }
+    .seg { display: flex; }
+    .seg button { flex: 1; padding: 8px 6px; }
+    form .row { grid-template-columns: 1fr 1fr; }
+
+    .card { padding: 14px; }
+    .grid.cols-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid.cols-2 { grid-template-columns: 1fr; }
+    .stat .value { font-size: 19px; }
+    .stat .label { font-size: 12px; }
+    .wallets { grid-template-columns: 1fr 1fr; }
+    .wallet .bal { font-size: 17px; }
+    .chart-box { height: 240px; }
+    .toolbar label { min-width: 0; flex: 1 1 45%; }
+
+    /* transactions table becomes a card list */
+    #tab-transactions thead { display: none; }
+    #tab-transactions table, #tab-transactions tbody { display: block; }
+    #t-body tr {
+      display: grid; grid-template-columns: auto auto 1fr auto; column-gap: 8px; align-items: center;
+      grid-template-areas: "cat cat cat amt" "date wallet type type" "note note note note" "act act act act";
+      padding: 10px 0; border-bottom: 1px solid var(--grid);
+    }
+    #t-body td { border: 0; padding: 0; white-space: normal; }
+    #t-body .c-cat { grid-area: cat; font-weight: 600; }
+    #t-body .c-amt { grid-area: amt; font-weight: 600; }
+    #t-body .c-date, #t-body .c-wallet, #t-body .c-type { font-size: 13px; color: var(--muted); }
+    #t-body .c-date { grid-area: date; }
+    #t-body .c-wallet { grid-area: wallet; }
+    #t-body .c-type { grid-area: type; }
+    #t-body .c-note { grid-area: note; font-size: 14px; margin-top: 2px; }
+    #t-body .c-note:empty { display: none; }
+    #t-body .c-act { grid-area: act; margin-left: -6px; }
+
+    #w-body td { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Wallet Tracker</h1>
+    <nav id="nav">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="transactions">Transactions</button>
+      <button data-tab="savings">Savings</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </header>
+
+  <!-- OVERVIEW -->
+  <section id="tab-overview" class="tab active stack">
+    <div class="grid cols-4">
+      <div class="card stat"><div class="label">Total balance</div><div class="value" id="st-total">—</div></div>
+      <div class="card stat"><div class="label">Income this month</div><div class="value" id="st-income">—</div></div>
+      <div class="card stat"><div class="label">Expenses this month</div><div class="value" id="st-expense">—</div></div>
+      <div class="card stat"><div class="label">Net this month</div><div class="value" id="st-net">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="flex between"><h2>Wallets</h2><span class="muted small">Click “Update balance” to match what your app shows</span></div>
+      <div class="wallets" id="wallet-list"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="form-title">Add entry</h2>
+      <div class="seg" id="type-seg">
+        <button data-type="expense" class="active">Expense</button>
+        <button data-type="income">Revenue</button>
+        <button data-type="transfer">Transfer</button>
+      </div>
+      <form id="txn-form" autocomplete="off">
+        <div class="row">
+          <label>Amount (₱)<input id="f-amount" type="number" step="0.01" min="0.01" required></label>
+          <label><span id="f-wallet-label">Wallet</span><select id="f-wallet" required></select></label>
+          <label id="f-to-wrap" hidden>To wallet<select id="f-to"></select></label>
+          <label id="f-cat-wrap">Category<input id="f-cat" list="cat-list" placeholder="e.g. Food"></label>
+          <label>Date<input id="f-date" type="date" required></label>
+        </div>
+        <label style="margin-top:8px">Note<input id="f-note" placeholder="Optional"></label>
+        <div class="flex" style="margin-top:12px">
+          <button class="btn primary" type="submit" id="f-submit">Add</button>
+          <button class="btn" type="button" id="f-cancel" hidden>Cancel edit</button>
+        </div>
+        <datalist id="cat-list"></datalist>
+      </form>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Revenue vs expenses — last 6 months</h2>
+        <div class="chart-box"><canvas id="ch-monthly"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="flex between">
+          <h2>Expenses by category</h2>
+          <input id="cat-month" type="month" style="width:auto;margin:0 0 12px">
+        </div>
+        <div class="chart-box"><canvas id="ch-category"></canvas></div>
+        <div class="empty" id="cat-empty" hidden>No expenses this month</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRANSACTIONS -->
+  <section id="tab-transactions" class="tab">
+    <div class="card">
+      <div class="toolbar">
+        <label>Month<input id="t-month" type="month"></label>
+        <label>Wallet<select id="t-wallet"></select></label>
+        <label>Type<select id="t-type">
+          <option value="">All</option><option value="income">Revenue</option><option value="expense">Expense</option>
+          <option value="transfer">Transfer</option><option value="adjust">Adjustment</option>
+        </select></label>
+        <button class="btn" id="t-clear">Show all months</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Wallet</th><th>Category</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead>
+          <tbody id="t-body"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="t-empty" hidden>No entries match these filters</div>
+      <div class="flex between small" style="margin-top:12px">
+        <span id="t-summary" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SAVINGS -->
+  <section id="tab-savings" class="tab stack">
+    <div class="grid cols-4">
+      <div class="card stat"><div class="label">Saved in goals</div><div class="value" id="sv-total">—</div></div>
+      <div class="card stat"><div class="label">Saved this month (revenue − expenses)</div><div class="value" id="sv-month">—</div></div>
+      <div class="card stat"><div class="label">Savings rate this month</div><div class="value" id="sv-rate">—</div></div>
+      <div class="card stat"><div class="label">Avg monthly net (last 6 mo)</div><div class="value" id="sv-avg">—</div></div>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>Goals</h2>
+        <div id="goal-list" class="stack"></div>
+        <form id="goal-form" style="margin-top:16px" autocomplete="off">
+          <h3>New goal</h3>
+          <div class="row">
+            <label>Name<input id="g-name" required placeholder="Emergency fund"></label>
+            <label>Target (₱)<input id="g-target" type="number" step="0.01" min="1" required></label>
+            <label>Target date<input id="g-date" type="date"></label>
+          </div>
+          <button class="btn primary" style="margin-top:8px">Add goal</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Saved in goals over time</h2>
+        <div class="chart-box"><canvas id="ch-savings"></canvas></div>
+        <div class="empty" id="sv-empty" hidden>Add money to a goal to see the trend</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="tab stack">
+    <div class="card">
+      <h2>Wallets</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th class="num">Starting balance</th><th class="num">Current</th><th></th></tr></thead>
+          <tbody id="w-body"></tbody>
+        </table>
+      </div>
+      <form id="wallet-form" style="margin-top:16px" autocomplete="off">
+        <h3>Add wallet</h3>
+        <div class="row">
+          <label>Name<input id="w-name" required placeholder="e.g. BPI Savings"></label>
+          <label>Starting balance (₱)<input id="w-open" type="number" step="0.01" value="0"></label>
+        </div>
+        <button class="btn primary" style="margin-top:8px">Add wallet</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="note-box">Your data is stored only in this browser. Clearing site data or switching browsers will lose it, so export a backup regularly.</p>
+      <div class="flex">
+        <button class="btn" id="b-export">Export JSON</button>
+        <button class="btn" id="b-csv">Export transactions CSV</button>
+        <label class="btn" style="display:inline-block;cursor:pointer;color:var(--text)">Import JSON<input id="b-import" type="file" accept=".json,application/json" hidden></label>
+        <button class="btn danger" id="b-reset">Erase all data</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Theme</h2>
+      <select id="theme" style="width:auto">
+        <option value="">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
+      </select>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const KEY = 'walletTracker.v1';
+  const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
+  const CATS = {
+    expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
+    income: ['Salary', 'Freelance', 'Business', 'Allowance', 'Gift', 'Refund', 'Interest', 'Other'],
+  };
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const pad = n => String(n).padStart(2, '0');
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const thisMonth = () => today().slice(0, 7);
+  const peso = n => (n < 0 ? '−₱' : '₱') + Math.abs(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = id => document.getElementById(id);
+  const monthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-PH', { month: 'short', year: '2-digit' }); };
+  const lastMonths = n => {
+    const out = []; const d = new Date(); d.setDate(1);
+    for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(`${x.getFullYear()}-${pad(x.getMonth() + 1)}`); }
+    return out;
+  };
+
+  // ---------- state ----------
+  function freshState() {
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [] };
+  }
+  function load() {
+    try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch {}
+    return freshState();
+  }
+  let state = load();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} render(); }
+
+  const walletName = id => state.wallets.find(w => w.id === id)?.name ?? '(deleted)';
+
+  function balanceOf(walletId) {
+    const w = state.wallets.find(w => w.id === walletId);
+    let b = w ? Number(w.opening) || 0 : 0;
+    for (const t of state.txns) {
+      if (t.type === 'income' && t.walletId === walletId) b += t.amount;
+      else if (t.type === 'expense' && t.walletId === walletId) b -= t.amount;
+      else if (t.type === 'adjust' && t.walletId === walletId) b += t.amount;
+      else if (t.type === 'transfer') {
+        if (t.walletId === walletId) b -= t.amount;
+        if (t.toWalletId === walletId) b += t.amount;
+      }
+    }
+    return b;
+  }
+
+  function monthTotals(ym) {
+    let income = 0, expense = 0;
+    for (const t of state.txns) {
+      if (!t.date.startsWith(ym)) continue;
+      if (t.type === 'income') income += t.amount;
+      else if (t.type === 'expense') expense += t.amount;
+    }
+    return { income, expense, net: income - expense };
+  }
+
+  // ---------- tabs ----------
+  $('nav').addEventListener('click', e => {
+    const tab = e.target.dataset?.tab; if (!tab) return;
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+    renderCharts();
+  });
+
+  // ---------- entry form ----------
+  let entryType = 'expense';
+  let editingId = null;
+
+  function setType(type) {
+    entryType = type;
+    document.querySelectorAll('#type-seg button').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+    $('f-to-wrap').hidden = type !== 'transfer';
+    $('f-cat-wrap').hidden = type === 'transfer';
+    $('f-wallet-label').textContent = type === 'transfer' ? 'From wallet' : 'Wallet';
+    $('cat-list').innerHTML = (CATS[type] || []).concat(usedCategories(type))
+      .filter((c, i, a) => a.indexOf(c) === i).map(c => `<option value="${esc(c)}">`).join('');
+  }
+  function usedCategories(type) {
+    return state.txns.filter(t => t.type === type && t.category).map(t => t.category);
+  }
+  $('type-seg').addEventListener('click', e => { if (e.target.dataset.type) setType(e.target.dataset.type); });
+
+  function resetForm() {
+    editingId = null;
+    $('txn-form').reset();
+    $('f-date').value = today();
+    $('form-title').textContent = 'Add entry';
+    $('f-submit').textContent = 'Add';
+    $('f-cancel').hidden = true;
+  }
+  $('f-cancel').addEventListener('click', resetForm);
+
+  $('txn-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const amount = Math.round(parseFloat($('f-amount').value) * 100) / 100;
+    if (!(amount > 0)) return;
+    const t = {
+      id: editingId || uid(),
+      type: entryType,
+      amount,
+      walletId: $('f-wallet').value,
+      toWalletId: entryType === 'transfer' ? $('f-to').value : undefined,
+      category: entryType === 'transfer' ? 'Transfer' : ($('f-cat').value.trim() || 'Other'),
+      date: $('f-date').value || today(),
+      note: $('f-note').value.trim(),
+    };
+    if (t.type === 'transfer' && t.walletId === t.toWalletId) { alert('Pick two different wallets for a transfer.'); return; }
+    if (editingId) state.txns = state.txns.map(x => x.id === editingId ? t : x);
+    else state.txns.push(t);
+    resetForm();
+    save();
+  });
+
+  function startEdit(id) {
+    const t = state.txns.find(x => x.id === id); if (!t) return;
+    if (t.type === 'adjust') { alert('Balance adjustments can only be deleted. Use “Update balance” again to correct.'); return; }
+    document.querySelector('#nav button[data-tab="overview"]').click();
+    setType(t.type);
+    editingId = id;
+    $('f-amount').value = t.amount;
+    $('f-wallet').value = t.walletId;
+    if (t.type === 'transfer') $('f-to').value = t.toWalletId;
+    $('f-cat').value = t.category || '';
+    $('f-date').value = t.date;
+    $('f-note').value = t.note || '';
+    $('form-title').textContent = 'Edit entry';
+    $('f-submit').textContent = 'Save changes';
+    $('f-cancel').hidden = false;
+    $('txn-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function reconcile(walletId) {
+    const current = balanceOf(walletId);
+    const input = prompt(`Actual ${walletName(walletId)} balance shown in the app (₱):`, current.toFixed(2));
+    if (input === null) return;
+    const actual = parseFloat(input.replace(/[₱,\s]/g, ''));
+    if (isNaN(actual)) { alert('Not a valid number.'); return; }
+    const diff = Math.round((actual - current) * 100) / 100;
+    if (diff === 0) return;
+    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: `Set to ${peso(actual)}` });
+    save();
+  }
+
+  // ---------- transactions tab ----------
+  ['t-month', 't-wallet', 't-type'].forEach(id => $(id).addEventListener('input', renderTxns));
+  $('t-clear').addEventListener('click', () => { $('t-month').value = ''; renderTxns(); });
+
+  $('t-body').addEventListener('click', e => {
+    const id = e.target.dataset.id; if (!id) return;
+    if (e.target.dataset.act === 'edit') startEdit(id);
+    if (e.target.dataset.act === 'del' && confirm('Delete this entry?')) { state.txns = state.txns.filter(t => t.id !== id); save(); }
+  });
+
+  const TYPE_LABEL = { income: 'Revenue', expense: 'Expense', transfer: 'Transfer', adjust: 'Adjustment' };
+
+  function renderTxns() {
+    const m = $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
+    const rows = state.txns
+      .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w) && (!ty || t.type === ty))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    $('t-body').innerHTML = rows.map(t => {
+      const sign = t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '';
+      const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : '';
+      const amt = t.type === 'adjust' ? peso(t.amount) : sign + peso(t.amount);
+      const wallet = t.type === 'transfer' ? `${esc(walletName(t.walletId))} → ${esc(walletName(t.toWalletId))}` : esc(walletName(t.walletId));
+      return `<tr><td class="c-date">${t.date}</td><td class="c-type">${TYPE_LABEL[t.type]}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${esc(t.category)}</td>
+        <td class="num c-amt ${cls}">${amt}</td><td class="note c-note">${esc(t.note)}</td>
+        <td class="c-act"><button class="link" data-act="edit" data-id="${t.id}">Edit</button><button class="link danger" data-act="del" data-id="${t.id}">Delete</button></td></tr>`;
+    }).join('');
+    $('t-empty').hidden = rows.length > 0;
+    const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const exp = rows.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    $('t-summary').textContent = `${rows.length} entries · Revenue ${peso(inc)} · Expenses ${peso(exp)} · Net ${peso(inc - exp)}`;
+  }
+
+  // ---------- goals ----------
+  $('goal-form').addEventListener('submit', e => {
+    e.preventDefault();
+    state.goals.push({ id: uid(), name: $('g-name').value.trim(), target: parseFloat($('g-target').value), deadline: $('g-date').value || '' });
+    e.target.reset();
+    save();
+  });
+
+  const goalSaved = id => state.goalEntries.filter(x => x.goalId === id).reduce((s, x) => s + x.amount, 0);
+
+  $('goal-list').addEventListener('click', e => {
+    const { act, id } = e.target.dataset; if (!id) return;
+    const g = state.goals.find(g => g.id === id);
+    if (act === 'add' || act === 'withdraw') {
+      const input = prompt(`${act === 'add' ? 'Amount to add to' : 'Amount to take out of'} “${g.name}” (₱):`);
+      if (input === null) return;
+      const n = parseFloat(input.replace(/[₱,\s]/g, ''));
+      if (!(n > 0)) { alert('Enter a positive amount.'); return; }
+      state.goalEntries.push({ id: uid(), goalId: id, amount: act === 'add' ? n : -n, date: today() });
+      save();
+    }
+    if (act === 'del' && confirm(`Delete goal “${g.name}” and its history?`)) {
+      state.goals = state.goals.filter(x => x.id !== id);
+      state.goalEntries = state.goalEntries.filter(x => x.goalId !== id);
+      save();
+    }
+  });
+
+  function renderGoals() {
+    if (!state.goals.length) { $('goal-list').innerHTML = '<div class="empty">No goals yet. Add one below.</div>'; return; }
+    $('goal-list').innerHTML = state.goals.map(g => {
+      const saved = goalSaved(g.id);
+      const pct = g.target > 0 ? Math.max(0, Math.min(100, saved / g.target * 100)) : 0;
+      let pace = '';
+      if (g.deadline && saved < g.target) {
+        const now = new Date(), end = new Date(g.deadline + 'T00:00');
+        const months = Math.max(1, (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth());
+        pace = end > now ? ` · ${peso((g.target - saved) / months)}/mo to hit ${g.deadline}` : ` · target date passed`;
+      }
+      return `<div>
+        <div class="flex between"><strong>${esc(g.name)}</strong><span class="small">${peso(saved)} / ${peso(g.target)}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="flex between small"><span class="muted">${pct.toFixed(0)}%${pace}</span>
+          <span><button class="link" data-act="add" data-id="${g.id}">+ Add</button><button class="link" data-act="withdraw" data-id="${g.id}">− Withdraw</button><button class="link danger" data-act="del" data-id="${g.id}">Delete</button></span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ---------- settings ----------
+  $('wallet-form').addEventListener('submit', e => {
+    e.preventDefault();
+    state.wallets.push({ id: uid(), name: $('w-name').value.trim(), opening: parseFloat($('w-open').value) || 0 });
+    e.target.reset(); $('w-open').value = 0;
+    save();
+  });
+
+  $('w-body').addEventListener('click', e => {
+    const { act, id } = e.target.dataset; if (!id) return;
+    const w = state.wallets.find(w => w.id === id);
+    if (act === 'rename') {
+      const name = prompt('Wallet name:', w.name); if (name && name.trim()) { w.name = name.trim(); save(); }
+    }
+    if (act === 'opening') {
+      const v = prompt(`Starting balance for ${w.name} (₱):`, w.opening);
+      if (v !== null && !isNaN(parseFloat(v))) { w.opening = parseFloat(v); save(); }
+    }
+    if (act === 'del') {
+      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id);
+      if (used) { alert(`${w.name} has entries. Delete those first, or keep the wallet.`); return; }
+      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); save(); }
+    }
+  });
+
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $('b-export').addEventListener('click', () => download(`wallet-tracker-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
+  $('b-csv').addEventListener('click', () => {
+    const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [['date', 'type', 'wallet', 'to_wallet', 'category', 'amount', 'note'].join(',')];
+    [...state.txns].sort((a, b) => a.date.localeCompare(b.date)).forEach(t =>
+      lines.push([t.date, t.type, q(walletName(t.walletId)), q(t.toWalletId ? walletName(t.toWalletId) : ''), q(t.category), t.amount, q(t.note)].join(',')));
+    download(`wallet-transactions-${today()}.csv`, lines.join('\n'), 'text/csv');
+  });
+  $('b-import').addEventListener('change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data.wallets) || !Array.isArray(data.txns)) throw new Error('Not a Wallet Tracker backup');
+      if (!confirm('Replace all current data with this backup?')) return;
+      state = { goals: [], goalEntries: [], ...data };
+      save();
+    } catch (err) { alert('Import failed: ' + err.message); }
+    e.target.value = '';
+  });
+  $('b-reset').addEventListener('click', () => {
+    if (confirm('Erase ALL wallets, entries and goals? This cannot be undone.')) { state = freshState(); save(); }
+  });
+
+  // theme
+  try { const t = localStorage.getItem(KEY + '.theme'); if (t) { document.documentElement.dataset.theme = t; $('theme').value = t; } } catch {}
+  $('theme').addEventListener('input', e => {
+    const v = e.target.value;
+    if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem(KEY + '.theme', v); } catch {}
+    renderCharts();
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+
+  // ---------- charts ----------
+  const charts = {};
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function baseOptions() {
+    const grid = css('--grid'), muted = css('--muted'), text = css('--text');
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: css('--text-2'), boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 } },
+        tooltip: {
+          backgroundColor: css('--surface'), titleColor: text, bodyColor: text, borderColor: css('--axis'), borderWidth: 1,
+          padding: 10, boxPadding: 4, usePointStyle: true,
+          callbacks: { label: c => ` ${c.dataset.label}: ${peso(c.parsed.y ?? c.parsed.x)}` },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: muted } },
+        y: { beginAtZero: true, grid: { color: grid }, border: { display: false },
+             ticks: { color: muted, callback: v => '₱' + Number(v).toLocaleString('en-PH', { notation: 'compact' }) } },
+      },
+    };
+  }
+
+  function draw(id, config) {
+    charts[id]?.destroy();
+    charts[id] = new Chart($(id), config);
+  }
+
+  function renderCharts() {
+    if (typeof Chart === 'undefined') return;
+
+    if ($('tab-overview').classList.contains('active')) {
+      const months = lastMonths(6);
+      const totals = months.map(monthTotals);
+      const bar = { borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'start', barPercentage: 0.8, categoryPercentage: 0.6 };
+      draw('ch-monthly', {
+        type: 'bar',
+        data: {
+          labels: months.map(monthLabel),
+          datasets: [
+            { label: 'Revenue', data: totals.map(t => t.income), backgroundColor: css('--series-1'), ...bar },
+            { label: 'Expenses', data: totals.map(t => t.expense), backgroundColor: css('--series-2'), ...bar },
+          ],
+        },
+        options: baseOptions(),
+      });
+
+      const ym = $('cat-month').value || thisMonth();
+      const byCat = {};
+      state.txns.filter(t => t.type === 'expense' && t.date.startsWith(ym)).forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
+      const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      $('cat-empty').hidden = sorted.length > 0;
+      $('ch-category').parentElement.hidden = sorted.length === 0;
+      if (sorted.length) {
+        const opts = baseOptions();
+        opts.indexAxis = 'y';
+        opts.plugins.legend.display = false;
+        opts.plugins.tooltip.callbacks.label = c => {
+          const total = sorted.reduce((s, [, v]) => s + v, 0);
+          return ` ${peso(c.parsed.x)} (${(c.parsed.x / total * 100).toFixed(0)}%)`;
+        };
+        [opts.scales.x, opts.scales.y] = [opts.scales.y, opts.scales.x];
+        opts.scales.x.grid = { color: css('--grid') };
+        opts.scales.y.ticks = { color: css('--text-2') };
+        draw('ch-category', {
+          type: 'bar',
+          data: { labels: sorted.map(([k]) => k), datasets: [{ label: 'Spent', data: sorted.map(([, v]) => v), backgroundColor: css('--series-2'),
+            borderRadius: { topRight: 4, bottomRight: 4 }, borderSkipped: 'start', barPercentage: 0.7, categoryPercentage: 0.9 }] },
+          options: opts,
+        });
+      }
+    }
+
+    if ($('tab-savings').classList.contains('active')) {
+      const entries = [...state.goalEntries].sort((a, b) => a.date.localeCompare(b.date));
+      $('sv-empty').hidden = entries.length > 0;
+      $('ch-savings').parentElement.hidden = entries.length === 0;
+      if (entries.length) {
+        const byDate = new Map(); let running = 0;
+        entries.forEach(e => { running += e.amount; byDate.set(e.date, running); });
+        if (!byDate.has(today())) byDate.set(today(), running);
+        const opts = baseOptions();
+        opts.plugins.legend.display = false;
+        draw('ch-savings', {
+          type: 'line',
+          data: { labels: [...byDate.keys()], datasets: [{ label: 'Saved', data: [...byDate.values()], borderColor: css('--series-1'),
+            backgroundColor: css('--series-1'), borderWidth: 2, stepped: true, pointRadius: 0, pointHoverRadius: 5, pointHitRadius: 12 }] },
+          options: opts,
+        });
+      }
+    }
+  }
+  $('cat-month').addEventListener('input', renderCharts);
+
+  // ---------- render ----------
+  function renderWalletOptions() {
+    const opts = state.wallets.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    const keep = id => { const el = $(id); const v = el.value; return () => { if ([...el.options].some(o => o.value === v)) el.value = v; }; };
+    const r1 = keep('f-wallet'), r2 = keep('f-to'), r3 = keep('t-wallet');
+    $('f-wallet').innerHTML = opts;
+    $('f-to').innerHTML = opts;
+    if (!$('f-to').value || $('f-to').value === $('f-wallet').value) $('f-to').selectedIndex = Math.min(1, state.wallets.length - 1);
+    $('t-wallet').innerHTML = '<option value="">All wallets</option>' + opts;
+    r1(); r2(); r3();
+  }
+
+  function render() {
+    const total = state.wallets.reduce((s, w) => s + balanceOf(w.id), 0);
+    const m = monthTotals(thisMonth());
+    $('st-total').textContent = peso(total);
+    $('st-income').textContent = peso(m.income);
+    $('st-expense').textContent = peso(m.expense);
+    $('st-net').textContent = peso(m.net);
+    $('st-net').className = 'value ' + (m.net > 0 ? 'pos' : m.net < 0 ? 'neg' : '');
+
+    $('wallet-list').innerHTML = state.wallets.map(w => `<div class="wallet">
+      <div class="name">${esc(w.name)}</div><div class="bal">${peso(balanceOf(w.id))}</div>
+      <button class="link" data-rec="${w.id}" style="padding:0">Update balance</button></div>`).join('') ||
+      '<div class="empty">No wallets. Add one in Settings.</div>';
+
+    $('w-body').innerHTML = state.wallets.map(w => `<tr><td>${esc(w.name)}</td><td class="num">${peso(Number(w.opening) || 0)}</td>
+      <td class="num">${peso(balanceOf(w.id))}</td>
+      <td><button class="link" data-act="rename" data-id="${w.id}">Rename</button><button class="link" data-act="opening" data-id="${w.id}">Edit start</button><button class="link danger" data-act="del" data-id="${w.id}">Remove</button></td></tr>`).join('');
+
+    renderWalletOptions();
+    setType(entryType);
+    renderTxns();
+    renderGoals();
+
+    const goalTotal = state.goals.reduce((s, g) => s + goalSaved(g.id), 0);
+    $('sv-total').textContent = peso(goalTotal);
+    $('sv-month').textContent = peso(m.net);
+    $('sv-month').className = 'value ' + (m.net > 0 ? 'pos' : m.net < 0 ? 'neg' : '');
+    $('sv-rate').textContent = m.income > 0 ? (m.net / m.income * 100).toFixed(0) + '%' : '—';
+    const six = lastMonths(6).map(monthTotals);
+    $('sv-avg').textContent = peso(six.reduce((s, t) => s + t.net, 0) / 6);
+
+    renderCharts();
+  }
+
+  $('wallet-list').addEventListener('click', e => { if (e.target.dataset.rec) reconcile(e.target.dataset.rec); });
+
+  // offline support + ask the browser not to evict saved data (only works over http/https)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  navigator.storage?.persist?.().catch(() => {});
+
+  $('f-date').value = today();
+  $('cat-month').value = thisMonth();
+  $('t-month').value = thisMonth();
+  render();
+})();
+</script>
+</body>
+</html>
