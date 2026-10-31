@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Wallet Tracker</title>
-<meta name="theme-color" content="#2a78d6">
+<meta name="theme-color" content="#4b4d26">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Wallets">
@@ -14,60 +14,65 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <script src="vendor/chart.umd.min.js"></script>
 <style>
+  /* Palette: olive #4b4d26 · sage #80916d · tan #cbb397 · clay #9b6a5b · brown #613a2b */
   :root {
     color-scheme: light;
-    --page: #f9f9f7;
-    --surface: #fcfcfb;
-    --surface-2: #f0efec;
-    --text: #0b0b0b;
-    --text-2: #52514e;
-    --muted: #898781;
-    --grid: #e1e0d9;
-    --axis: #c3c2b7;
-    --border: rgba(11,11,11,0.10);
-    --accent: #2a78d6;
-    --series-1: #2a78d6;   /* income / primary */
-    --series-2: #eb6834;   /* expense */
-    --good: #006300;
-    --bad: #d03b3b;
+    --page: #f4ede3;
+    --surface: #fbf7f1;
+    --surface-2: #ece2d4;
+    --text: #2b2116;
+    --text-2: #5f4e3f;
+    --muted: #8c7b69;
+    --grid: #e6dccd;
+    --axis: #cbb397;
+    --border: rgba(97,58,43,0.14);
+    --accent: #4b4d26;
+    --on-accent: #fbf7f1;
+    --series-1: #80916d;   /* revenue / savings */
+    --series-2: #613a2b;   /* expenses */
+    --good: #4b4d26;
+    --bad: #8a5545;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --page: #0d0d0d;
-      --surface: #1a1a19;
-      --surface-2: #262624;
-      --text: #f0efec;
-      --text-2: #c3c2b7;
-      --muted: #898781;
-      --grid: #2c2c2a;
-      --axis: #383835;
-      --border: rgba(255,255,255,0.10);
-      --accent: #3987e5;
-      --series-1: #3987e5;
-      --series-2: #d95926;
-      --good: #0ca30c;
-      --bad: #e66767;
+      --page: #17150f;
+      --surface: #221f18;
+      --surface-2: #2e2a21;
+      --text: #f1e9dd;
+      --text-2: #cbb397;
+      --muted: #9a8b78;
+      --grid: #353025;
+      --axis: #4a4436;
+      --border: rgba(203,179,151,0.14);
+      --accent: #80916d;
+      --on-accent: #17150f;
+      --series-1: #80916d;
+      --series-2: #cbb397;
+      --good: #a3b38f;
+      --bad: #d39a88;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --surface-2: #262624;
-    --text: #f0efec;
-    --text-2: #c3c2b7;
-    --muted: #898781;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255,255,255,0.10);
-    --accent: #3987e5;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --good: #0ca30c;
-    --bad: #e66767;
+    --page: #17150f;
+    --surface: #221f18;
+    --surface-2: #2e2a21;
+    --text: #f1e9dd;
+    --text-2: #cbb397;
+    --muted: #9a8b78;
+    --grid: #353025;
+    --axis: #4a4436;
+    --border: rgba(203,179,151,0.14);
+    --accent: #80916d;
+    --on-accent: #17150f;
+    --series-1: #80916d;
+    --series-2: #cbb397;
+    --good: #a3b38f;
+    --bad: #d39a88;
   }
 
+  [hidden] { display: none !important; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -75,17 +80,34 @@
     color: var(--text);
     font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
+  #bg, #bg-dim { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  #bg { background-size: cover; background-position: center; }
+  #bg-dim { background: var(--page); opacity: 0; }
+  body.has-bg { background: transparent; }
+  body.has-bg .card, body.has-bg .wallet {
+    background: color-mix(in srgb, var(--surface) 86%, transparent);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+
+  a { color: var(--accent); }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
   h1 { font-size: 20px; margin: 0; }
   h2 { font-size: 16px; margin: 0 0 12px; }
   h3 { font-size: 14px; margin: 0 0 8px; color: var(--text-2); font-weight: 600; }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; flex: none;
+    font-weight: 700; font-size: 15px; border: 0; cursor: pointer; padding: 0;
+  }
+  .avatar.big { width: 64px; height: 64px; font-size: 26px; cursor: default; }
 
   nav { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; flex-wrap: wrap; }
   nav button { border: 0; background: transparent; color: var(--text-2); padding: 6px 12px; border-radius: 7px; cursor: pointer; font: inherit; }
   nav button.active { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
   .grid { display: grid; gap: 12px; }
   .cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -99,7 +121,7 @@
   .small { font-size: 13px; }
 
   .wallets { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-  .wallet { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); }
+  .wallet { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--surface); }
   .wallet .name { font-weight: 600; }
   .wallet .bal { font-size: 20px; font-weight: 650; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
 
@@ -110,11 +132,15 @@
     background: var(--page); border: 1px solid var(--border); border-radius: 8px;
   }
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="color"] { padding: 2px; height: 40px; width: 56px; cursor: pointer; }
+  input[type="range"] { padding: 0; accent-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); margin-top: 10px; cursor: pointer; }
+  .check input { width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--accent); }
   button.btn {
     font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
   }
-  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   button.btn.danger { color: var(--bad); }
   button.link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px 4px; font: inherit; font-size: 13px; }
   button.link.danger { color: var(--bad); }
@@ -144,6 +170,26 @@
   .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .between { justify-content: space-between; }
   .note-box { font-size: 13px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+
+  .recur-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
+  .recur-row:last-child { border-bottom: 0; }
+  .tag { font-size: 12px; color: var(--muted); }
+
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .swatch { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+  .swatch.active { outline: 2px solid var(--text); outline-offset: 2px; }
+  .preset { width: 64px; height: 44px; border-radius: 10px; border: 2px solid var(--border); cursor: pointer; padding: 0; background-size: cover; background-position: center; }
+  .preset.active { outline: 2px solid var(--text); outline-offset: 2px; }
+  .setting + .setting { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--grid); }
+
+  /* profile gate */
+  #gate { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .gate-card { width: 100%; max-width: 440px; text-align: center; }
+  .profiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin: 20px 0 8px; }
+  .profile-tile { border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 14px 8px; cursor: pointer; font: inherit; color: var(--text); display: grid; justify-items: center; gap: 8px; }
+  .profile-tile:hover { border-color: var(--accent); }
+  #gate-pin { display: grid; justify-items: center; gap: 10px; margin-top: 16px; }
+  #gate-pin input { max-width: 200px; text-align: center; font-size: 22px; letter-spacing: 6px; }
 
   /* ---------- phone ---------- */
   @media (max-width: 640px) {
@@ -202,9 +248,33 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="bg"></div><div id="bg-dim"></div>
+
+<!-- PROFILE PICKER / LOCK -->
+<div id="gate" hidden>
+  <div class="card gate-card">
+    <h1>Wallet Tracker</h1>
+    <p class="muted" style="margin:4px 0 0">Who’s tracking?</p>
+    <div id="gate-list">
+      <div id="gate-profiles" class="profiles"></div>
+      <button class="btn" id="gate-add">+ Add profile</button>
+    </div>
+    <form id="gate-pin" hidden autocomplete="off">
+      <div class="avatar big" id="pin-avatar"></div>
+      <strong id="pin-name"></strong>
+      <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="PIN" required>
+      <div id="pin-error" class="neg small"></div>
+      <div class="flex"><button type="button" class="btn" id="pin-back">Back</button><button class="btn primary">Unlock</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="wrap" hidden>
   <header>
-    <div><h1>Wallet Tracker</h1><div id="sync-badge" class="muted small"></div></div>
+    <div class="brand">
+      <button class="avatar" id="chip" title="Switch profile"></button>
+      <div><h1>Wallet Tracker</h1><div id="sync-badge" class="muted small"></div></div>
+    </div>
     <nav id="nav">
       <button data-tab="overview" class="active">Overview</button>
       <button data-tab="transactions">Transactions</button>
@@ -217,7 +287,7 @@
   <section id="tab-overview" class="tab active stack">
     <div class="grid cols-4">
       <div class="card stat"><div class="label">Total balance</div><div class="value" id="st-total">—</div></div>
-      <div class="card stat"><div class="label">Income this month</div><div class="value" id="st-income">—</div></div>
+      <div class="card stat"><div class="label">Revenue this month</div><div class="value" id="st-income">—</div></div>
       <div class="card stat"><div class="label">Expenses this month</div><div class="value" id="st-expense">—</div></div>
       <div class="card stat"><div class="label">Net this month</div><div class="value" id="st-net">—</div></div>
     </div>
@@ -243,12 +313,18 @@
           <label>Date<input id="f-date" type="date" required></label>
         </div>
         <label style="margin-top:8px">Note<input id="f-note" placeholder="Optional"></label>
+        <label class="check" id="f-repeat-wrap"><input type="checkbox" id="f-repeat"> <span id="f-repeat-label">Monthly expense (adds itself every month on this day)</span></label>
         <div class="flex" style="margin-top:12px">
           <button class="btn primary" type="submit" id="f-submit">Add</button>
           <button class="btn" type="button" id="f-cancel" hidden>Cancel edit</button>
         </div>
         <datalist id="cat-list"></datalist>
       </form>
+    </div>
+
+    <div class="card">
+      <div class="flex between"><h2>Monthly</h2><span class="muted small" id="recur-summary"></span></div>
+      <div id="recur-list"></div>
     </div>
 
     <div class="grid cols-2">
@@ -275,7 +351,7 @@
         <label>Wallet<select id="t-wallet"></select></label>
         <label>Type<select id="t-type">
           <option value="">All</option><option value="income">Revenue</option><option value="expense">Expense</option>
-          <option value="transfer">Transfer</option><option value="adjust">Adjustment</option>
+          <option value="transfer">Transfer</option><option value="adjust">Adjustment</option><option value="monthly">Monthly only</option>
         </select></label>
         <button class="btn" id="t-clear">Show all months</button>
       </div>
@@ -286,9 +362,7 @@
         </table>
       </div>
       <div class="empty" id="t-empty" hidden>No entries match these filters</div>
-      <div class="flex between small" style="margin-top:12px">
-        <span id="t-summary" class="muted"></span>
-      </div>
+      <div class="small" style="margin-top:12px"><span id="t-summary" class="muted"></span></div>
     </div>
   </section>
 
@@ -326,6 +400,53 @@
   <!-- SETTINGS -->
   <section id="tab-settings" class="tab stack">
     <div class="card">
+      <h2>Profile</h2>
+      <div class="flex">
+        <div class="avatar big" id="pf-avatar"></div>
+        <div><strong id="pf-name"></strong><div class="muted small" id="pf-pin-state"></div></div>
+      </div>
+      <div class="flex" style="margin-top:12px">
+        <button class="btn" id="pf-rename">Rename</button>
+        <button class="btn" id="pf-pin">Set PIN</button>
+        <button class="btn" id="pf-pin-remove" hidden>Remove PIN</button>
+        <button class="btn" id="pf-switch">Switch / add profile</button>
+        <button class="btn danger" id="pf-delete">Delete profile</button>
+      </div>
+      <p class="note-box" style="margin-bottom:0">Each profile has its own wallets, entries, goals, look and sync. The PIN stops others from opening your profile in the app on a shared phone; it doesn’t encrypt the data.</p>
+    </div>
+
+    <div class="card">
+      <h2>Personalize</h2>
+      <div class="setting">
+        <h3>Theme</h3>
+        <select id="theme" style="width:auto">
+          <option value="">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="setting">
+        <h3>Accent color</h3>
+        <div class="swatches" id="accent-swatches"></div>
+      </div>
+      <div class="setting">
+        <h3>Background</h3>
+        <div class="swatches" id="bg-presets"></div>
+        <div class="flex" style="margin-top:12px">
+          <label style="display:flex;align-items:center;gap:8px">Solid color <input id="bg-color" type="color" value="#f4ede3" style="margin:0"></label>
+          <button class="btn" id="bg-upload-btn">Upload photo</button>
+          <input id="bg-upload" type="file" accept="image/*" hidden>
+          <button class="btn" id="bg-reset">Reset</button>
+        </div>
+        <div class="flex" style="margin-top:8px">
+          <input id="bg-url" type="url" placeholder="…or paste an image link" style="flex:1;min-width:200px;margin:0">
+          <button class="btn" id="bg-url-use">Use link</button>
+        </div>
+        <label style="margin-top:12px" id="bg-dim-wrap">Soften background <span id="bg-dim-val"></span>
+          <input id="bg-dim" type="range" min="0" max="85" step="5">
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Wallets</h2>
       <div class="table-wrap">
         <table>
@@ -346,7 +467,7 @@
     <div class="card">
       <h2>Sync between devices</h2>
       <div id="sync-off">
-        <p class="note-box">Keeps your phone and PC in step automatically by saving to a private Gist on your GitHub account. Set it up once on each device with the same token.</p>
+        <p class="note-box">Keeps this profile in step across your phone and PC by saving to a private Gist on your GitHub account. Set it up once on each device with the same token. Each person should use their own GitHub account.</p>
         <ol class="small" style="padding-left:20px;color:var(--text-2)">
           <li>Open <a href="https://github.com/settings/tokens/new?scopes=gist&description=Wallet%20Tracker%20sync" target="_blank" rel="noopener">GitHub → New token</a> (the “gist” box is already ticked; tick nothing else).</li>
           <li>Set Expiration to “No expiration” (or a date you’ll remember), click Generate, and copy the token.</li>
@@ -368,64 +489,163 @@
 
     <div class="card">
       <h2>Backup</h2>
-      <p class="note-box">Your data is stored only in this browser. Clearing site data or switching browsers will lose it, so export a backup regularly.</p>
+      <p class="note-box">Data is stored in this browser. Export a backup now and then, especially if you don’t use sync.</p>
       <div class="flex">
         <button class="btn" id="b-export">Export JSON</button>
         <button class="btn" id="b-csv">Export transactions CSV</button>
-        <label class="btn" style="display:inline-block;cursor:pointer;color:var(--text)">Import JSON<input id="b-import" type="file" accept=".json,application/json" hidden></label>
-        <button class="btn danger" id="b-reset">Erase all data</button>
+        <button class="btn" id="b-import-btn">Import JSON</button>
+        <input id="b-import" type="file" accept=".json,application/json" hidden>
+        <button class="btn danger" id="b-reset">Erase this profile’s data</button>
       </div>
-    </div>
-
-    <div class="card">
-      <h2>Theme</h2>
-      <select id="theme" style="width:auto">
-        <option value="">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
-      </select>
     </div>
   </section>
 </div>
 
 <script>
 (() => {
-  const KEY = 'walletTracker.v1';
-  const COLS = ['wallets', 'txns', 'goals', 'goalEntries'];
   const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
   const CATS = {
-    expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
+    expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
     income: ['Salary', 'Freelance', 'Business', 'Allowance', 'Gift', 'Refund', 'Interest', 'Other'],
   };
+  const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring'];
+  const PALETTE = ['#4b4d26', '#80916d', '#9b6a5b', '#613a2b', '#cbb397'];
+  const BG_PRESETS = [
+    { name: 'Plain', css: '' },
+    { name: 'Linen', css: 'linear-gradient(160deg, #f4ede3 0%, #e6d6c1 100%)' },
+    { name: 'Sage mist', css: 'linear-gradient(160deg, #dfe4d4 0%, #b9c4a8 55%, #80916d 100%)' },
+    { name: 'Clay dusk', css: 'linear-gradient(160deg, #e8d3c3 0%, #c89c8a 50%, #9b6a5b 100%)' },
+    { name: 'Forest', css: 'linear-gradient(160deg, #80916d 0%, #4b4d26 60%, #2f3018 100%)' },
+    { name: 'Cocoa', css: 'linear-gradient(160deg, #9b6a5b 0%, #613a2b 60%, #3a2219 100%)' },
+  ];
 
+  // ---------- helpers ----------
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const pad = n => String(n).padStart(2, '0');
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   const thisMonth = () => today().slice(0, 7);
+  const nextYm = ym => { const [y, m] = ym.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`; };
   const peso = n => (n < 0 ? '−₱' : '₱') + Math.abs(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = id => document.getElementById(id);
+  const fmtDate = d => new Date(d + 'T00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
   const monthLabel = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-PH', { month: 'short', year: '2-digit' }); };
   const lastMonths = n => {
-    const out = []; const d = new Date(); d.setDate(1);
+    const out = []; const d = new Date();
     for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(`${x.getFullYear()}-${pad(x.getMonth() + 1)}`); }
     return out;
   };
+  const isLight = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.55;
+  };
+  const ls = {
+    get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+    del: k => { try { localStorage.removeItem(k); } catch {} },
+    json: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  };
+  const ss = {
+    get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} },
+    del: k => { try { sessionStorage.removeItem(k); } catch {} },
+  };
+
+  // ---------- profiles ----------
+  // The first profile ("main") keeps the original storage keys, so data from before profiles existed carries over.
+  const PROFILES_KEY = 'walletTracker.profiles', CURRENT_KEY = 'walletTracker.current';
+  const UNLOCKED_KEY = 'walletTracker.unlocked', GATE_KEY = 'walletTracker.showGate';
+  let profiles = ls.json(PROFILES_KEY) || [{ id: 'main', name: 'Me', pin: '' }];
+  const saveProfiles = () => ls.set(PROFILES_KEY, JSON.stringify(profiles));
+  const dataKeyOf = pid => pid === 'main' ? 'walletTracker.v1' : 'walletTracker.v1.' + pid;
+  const avatarColor = p => PALETTE[Math.max(0, profiles.indexOf(p)) % PALETTE.length];
+  function paintAvatar(el, p) {
+    const bg = avatarColor(p);
+    el.textContent = (p.name.trim()[0] || '?').toUpperCase();
+    el.style.background = bg;
+    el.style.color = isLight(bg) ? '#2b2116' : '#fbf7f1';
+  }
+  async function hashPin(pid, pin) {
+    const text = 'wallet-tracker:' + pid + ':' + pin;
+    if (crypto?.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    let h = 5381; for (const c of text) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0;
+    return 'x' + h.toString(16);
+  }
+  function enterProfile(pid) {
+    ls.set(CURRENT_KEY, pid);
+    ss.set(UNLOCKED_KEY, pid);
+    ss.del(GATE_KEY);
+    location.reload();
+  }
+  function openGate() { ss.del(UNLOCKED_KEY); ss.set(GATE_KEY, '1'); location.reload(); }
+  function addProfile() {
+    const name = prompt('Name for the new profile:');
+    if (!name || !name.trim()) return;
+    const p = { id: uid(), name: name.trim(), pin: '' };
+    profiles.push(p); saveProfiles();
+    enterProfile(p.id);
+  }
+
+  function showGate() {
+    $('gate').hidden = false;
+    $('gate-profiles').innerHTML = profiles.map(p =>
+      `<button class="profile-tile" data-pid="${p.id}"><span class="avatar" data-av="${p.id}"></span><span>${esc(p.name)}${p.pin ? ' 🔒' : ''}</span></button>`).join('');
+    profiles.forEach(p => paintAvatar(document.querySelector(`[data-av="${p.id}"]`), p));
+    let pinFor = null;
+    $('gate-profiles').onclick = e => {
+      const pid = e.target.closest('[data-pid]')?.dataset.pid; if (!pid) return;
+      const p = profiles.find(x => x.id === pid);
+      if (!p.pin) return enterProfile(pid);
+      pinFor = p;
+      $('gate-list').hidden = true; $('gate-pin').hidden = false;
+      paintAvatar($('pin-avatar'), p); $('pin-name').textContent = p.name;
+      $('pin-error').textContent = ''; $('pin-input').value = ''; $('pin-input').focus();
+    };
+    $('pin-back').onclick = () => { $('gate-list').hidden = false; $('gate-pin').hidden = true; };
+    $('gate-pin').onsubmit = async e => {
+      e.preventDefault();
+      if (await hashPin(pinFor.id, $('pin-input').value) === pinFor.pin) enterProfile(pinFor.id);
+      else { $('pin-error').textContent = 'Wrong PIN'; $('pin-input').value = ''; }
+    };
+    $('gate-add').onclick = addProfile;
+  }
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  navigator.storage?.persist?.().catch(() => {});
+
+  const currentId = profiles.some(p => p.id === ls.get(CURRENT_KEY)) ? ls.get(CURRENT_KEY) : profiles[0].id;
+  const profile = profiles.find(p => p.id === currentId);
+  const needGate = ss.get(GATE_KEY) === '1' || ((profiles.length > 1 || profile.pin) && ss.get(UNLOCKED_KEY) !== currentId);
+  if (needGate) { showGate(); return; }
+  if (!ls.get(PROFILES_KEY)) saveProfiles();
+  $('app').hidden = false;
+
+  // =====================================================================
+  // Everything below runs for the unlocked profile.
+  // =====================================================================
+  const KEY = dataKeyOf(profile.id);
 
   // ---------- state ----------
   // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
   // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], deleted: {} };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], deleted: {} };
   }
-  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], deleted: {}, ...s });
+  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], deleted: {}, ...s });
   function load() {
-    try { const raw = localStorage.getItem(KEY); if (raw) return normalize(JSON.parse(raw)); } catch {}
-    return freshState();
+    const s = ls.json(KEY);
+    return s ? normalize(s) : freshState();
   }
   let state = load();
   const now = () => Date.now();
   const forget = (...ids) => ids.forEach(id => { state.deleted[id] = now(); });
-  function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
-  function save() { persist(); render(); scheduleSync(); }
+  function persist() { ls.set(KEY, JSON.stringify(state)); }
+  function save() { applyRecurring(); persist(); render(); scheduleSync(); }
 
   const walletName = id => state.wallets.find(w => w.id === id)?.name ?? '(deleted)';
 
@@ -454,6 +674,59 @@
     return { income, expense, net: income - expense };
   }
 
+  // ---------- monthly (recurring) entries ----------
+  // A rule creates one entry per month with a predictable id (rule@YYYY-MM), so synced devices
+  // never double-add, and an occurrence you delete stays deleted.
+  function occDate(r, ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return `${ym}-${pad(Math.min(r.day, new Date(y, m, 0).getDate()))}`;
+  }
+  function applyRecurring() {
+    const t = today(), tm = thisMonth();
+    const have = new Set(state.txns.map(x => x.id));
+    let changed = false;
+    for (const r of state.recurring) {
+      for (let ym = r.start; ym <= tm; ym = nextYm(ym)) {
+        const id = r.id + '@' + ym, date = occDate(r, ym);
+        if (have.has(id) || id in state.deleted || date > t) continue;
+        state.txns.push({ id, type: r.type, amount: r.amount, walletId: r.walletId, category: r.category, date, note: r.note, recurringId: r.id, u: 1 });
+        changed = true;
+      }
+    }
+    return changed;
+  }
+  function nextDue(r) {
+    let ym = thisMonth() < r.start ? r.start : thisMonth();
+    if (occDate(r, ym) < today() || state.txns.some(x => x.id === r.id + '@' + ym)) ym = nextYm(ym);
+    return occDate(r, ym);
+  }
+
+  $('recur-list').addEventListener('click', e => {
+    const { act, id } = e.target.dataset; if (!id) return;
+    const r = state.recurring.find(x => x.id === id);
+    if (act === 'amount') {
+      const v = prompt(`New monthly amount for ${r.category} (₱). Past entries stay as they are.`, r.amount);
+      const n = v === null ? NaN : parseFloat(v.replace(/[₱,\s]/g, ''));
+      if (n > 0) { r.amount = Math.round(n * 100) / 100; r.u = now(); save(); }
+    }
+    if (act === 'stop' && confirm(`Stop “${r.category}” from repeating? Entries already added stay.`)) {
+      state.recurring = state.recurring.filter(x => x.id !== id); forget(id); save();
+    }
+  });
+
+  function renderRecurring() {
+    const rules = [...state.recurring].sort((a, b) => a.day - b.day);
+    const out = rules.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
+    const inc = rules.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
+    $('recur-summary').textContent = rules.length ? `${peso(out)} out · ${peso(inc)} in per month` : '';
+    $('recur-list').innerHTML = rules.map(r => `<div class="recur-row">
+        <div><strong>${esc(r.category)}</strong> <span class="${r.type === 'income' ? 'pos' : 'neg'}">${r.type === 'income' ? '+' : '−'}${peso(r.amount)}</span>
+          <div class="tag">${esc(walletName(r.walletId))} · every month on day ${r.day} · next ${fmtDate(nextDue(r))}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
+        <span><button class="link" data-act="amount" data-id="${r.id}">Change amount</button><button class="link danger" data-act="stop" data-id="${r.id}">Stop</button></span>
+      </div>`).join('') ||
+      '<div class="empty" style="padding:12px 0">Tick “Monthly” when adding rent, bills, subscriptions or salary and they’ll add themselves each month.</div>';
+  }
+
   // ---------- tabs ----------
   $('nav').addEventListener('click', e => {
     const tab = e.target.dataset?.tab; if (!tab) return;
@@ -471,6 +744,10 @@
     document.querySelectorAll('#type-seg button').forEach(b => b.classList.toggle('active', b.dataset.type === type));
     $('f-to-wrap').hidden = type !== 'transfer';
     $('f-cat-wrap').hidden = type === 'transfer';
+    $('f-repeat-wrap').hidden = type === 'transfer' || !!editingId;
+    $('f-repeat-label').textContent = type === 'income'
+      ? 'Monthly revenue (adds itself every month on this day)'
+      : 'Monthly expense (adds itself every month on this day)';
     $('f-wallet-label').textContent = type === 'transfer' ? 'From wallet' : 'Wallet';
     $('cat-list').innerHTML = (CATS[type] || []).concat(usedCategories(type))
       .filter((c, i, a) => a.indexOf(c) === i).map(c => `<option value="${esc(c)}">`).join('');
@@ -487,6 +764,7 @@
     $('form-title').textContent = 'Add entry';
     $('f-submit').textContent = 'Add';
     $('f-cancel').hidden = true;
+    setType(entryType);
   }
   $('f-cancel').addEventListener('click', resetForm);
 
@@ -506,8 +784,17 @@
       u: now(),
     };
     if (t.type === 'transfer' && t.walletId === t.toWalletId) { alert('Pick two different wallets for a transfer.'); return; }
-    if (editingId) state.txns = state.txns.map(x => x.id === editingId ? t : x);
-    else state.txns.push(t);
+    if (editingId) {
+      const old = state.txns.find(x => x.id === editingId);
+      if (old?.recurringId) t.recurringId = old.recurringId;
+      state.txns = state.txns.map(x => x.id === editingId ? t : x);
+    } else if ($('f-repeat').checked && t.type !== 'transfer') {
+      // the rule adds this month's entry itself (and future ones), so don't push t
+      state.recurring.push({ id: uid(), type: t.type, amount, walletId: t.walletId, category: t.category, note: t.note,
+        day: Number(t.date.slice(8, 10)), start: t.date.slice(0, 7), u: now() });
+    } else {
+      state.txns.push(t);
+    }
     resetForm();
     save();
   });
@@ -516,15 +803,15 @@
     const t = state.txns.find(x => x.id === id); if (!t) return;
     if (t.type === 'adjust') { alert('Balance adjustments can only be deleted. Use “Update balance” again to correct.'); return; }
     document.querySelector('#nav button[data-tab="overview"]').click();
-    setType(t.type);
     editingId = id;
+    setType(t.type);
     $('f-amount').value = t.amount;
     $('f-wallet').value = t.walletId;
     if (t.type === 'transfer') $('f-to').value = t.toWalletId;
     $('f-cat').value = t.category || '';
     $('f-date').value = t.date;
     $('f-note').value = t.note || '';
-    $('form-title').textContent = 'Edit entry';
+    $('form-title').textContent = t.recurringId ? 'Edit this month’s entry' : 'Edit entry';
     $('f-submit').textContent = 'Save changes';
     $('f-cancel').hidden = false;
     $('txn-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -557,14 +844,16 @@
   function renderTxns() {
     const m = $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
     const rows = state.txns
-      .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w) && (!ty || t.type === ty))
+      .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w)
+        && (!ty || (ty === 'monthly' ? t.recurringId : t.type === ty)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
     $('t-body').innerHTML = rows.map(t => {
       const sign = t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '';
       const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : '';
       const amt = t.type === 'adjust' ? peso(t.amount) : sign + peso(t.amount);
       const wallet = t.type === 'transfer' ? `${esc(walletName(t.walletId))} → ${esc(walletName(t.toWalletId))}` : esc(walletName(t.walletId));
-      return `<tr><td class="c-date">${t.date}</td><td class="c-type">${TYPE_LABEL[t.type]}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${esc(t.category)}</td>
+      const cat = esc(t.category) + (t.recurringId ? ' <span class="tag" title="Monthly">↻ monthly</span>' : '');
+      return `<tr><td class="c-date">${t.date}</td><td class="c-type">${TYPE_LABEL[t.type]}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${cat}</td>
         <td class="num c-amt ${cls}">${amt}</td><td class="note c-note">${esc(t.note)}</td>
         <td class="c-act"><button class="link" data-act="edit" data-id="${t.id}">Edit</button><button class="link danger" data-act="del" data-id="${t.id}">Delete</button></td></tr>`;
     }).join('');
@@ -610,9 +899,9 @@
       const pct = g.target > 0 ? Math.max(0, Math.min(100, saved / g.target * 100)) : 0;
       let pace = '';
       if (g.deadline && saved < g.target) {
-        const now = new Date(), end = new Date(g.deadline + 'T00:00');
-        const months = Math.max(1, (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth());
-        pace = end > now ? ` · ${peso((g.target - saved) / months)}/mo to hit ${g.deadline}` : ` · target date passed`;
+        const n = new Date(), end = new Date(g.deadline + 'T00:00');
+        const months = Math.max(1, (end.getFullYear() - n.getFullYear()) * 12 + end.getMonth() - n.getMonth());
+        pace = end > n ? ` · ${peso((g.target - saved) / months)}/mo to hit ${g.deadline}` : ` · target date passed`;
       }
       return `<div>
         <div class="flex between"><strong>${esc(g.name)}</strong><span class="small">${peso(saved)} / ${peso(g.target)}</span></div>
@@ -623,7 +912,7 @@
     }).join('');
   }
 
-  // ---------- settings ----------
+  // ---------- wallets (settings) ----------
   $('wallet-form').addEventListener('submit', e => {
     e.preventDefault();
     state.wallets.push({ id: uid(), name: $('w-name').value.trim(), opening: parseFloat($('w-open').value) || 0, u: now() });
@@ -642,32 +931,141 @@
       if (v !== null && !isNaN(parseFloat(v))) { w.opening = parseFloat(v); w.u = now(); save(); }
     }
     if (act === 'del') {
-      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id);
-      if (used) { alert(`${w.name} has entries. Delete those first, or keep the wallet.`); return; }
+      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id);
+      if (used) { alert(`${w.name} has entries or monthly items. Delete those first, or keep the wallet.`); return; }
       if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
     }
   });
 
+  // ---------- profile (settings) ----------
+  function renderProfile() {
+    paintAvatar($('chip'), profile);
+    paintAvatar($('pf-avatar'), profile);
+    $('chip').title = `${profile.name} · switch profile`;
+    $('pf-name').textContent = profile.name;
+    $('pf-pin-state').textContent = profile.pin ? 'PIN on' : 'No PIN';
+    $('pf-pin').textContent = profile.pin ? 'Change PIN' : 'Set PIN';
+    $('pf-pin-remove').hidden = !profile.pin;
+    $('pf-delete').hidden = profiles.length < 2;
+  }
+  $('chip').addEventListener('click', openGate);
+  $('pf-switch').addEventListener('click', openGate);
+  $('pf-rename').addEventListener('click', () => {
+    const name = prompt('Profile name:', profile.name);
+    if (name && name.trim()) { profile.name = name.trim(); saveProfiles(); renderProfile(); renderSync(); }
+  });
+  $('pf-pin').addEventListener('click', async () => {
+    const a = prompt('New PIN (4–8 digits):'); if (a === null) return;
+    if (!/^\d{4,8}$/.test(a)) { alert('Use 4 to 8 digits.'); return; }
+    if (prompt('Type the PIN again:') !== a) { alert('PINs didn’t match.'); return; }
+    profile.pin = await hashPin(profile.id, a);
+    saveProfiles(); ss.set(UNLOCKED_KEY, profile.id); renderProfile();
+  });
+  $('pf-pin-remove').addEventListener('click', () => {
+    if (confirm('Remove the PIN from this profile?')) { profile.pin = ''; saveProfiles(); renderProfile(); }
+  });
+  $('pf-delete').addEventListener('click', () => {
+    const typed = prompt(`This deletes “${profile.name}” and all of its data on this device (synced data on GitHub is kept).\n\nType the profile name to confirm:`);
+    if (typed === null || typed.trim() !== profile.name) return;
+    [KEY, KEY + '.sync', KEY + '.prefs', KEY + '.theme'].forEach(ls.del);
+    profiles = profiles.filter(p => p.id !== profile.id);
+    saveProfiles(); ls.del(CURRENT_KEY);
+    openGate();
+  });
+
+  // ---------- personalize ----------
+  const PREFS_KEY = KEY + '.prefs';
+  let prefs = ls.json(PREFS_KEY) || { theme: ls.get(KEY + '.theme') || '' };
+  function savePrefs() {
+    if (!ls.set(PREFS_KEY, JSON.stringify(prefs))) alert('Couldn’t save that. The photo may be too large for this browser’s storage; try a smaller one.');
+    applyPrefs(); renderPrefs(); renderCharts();
+  }
+  function applyPrefs() {
+    const root = document.documentElement;
+    if (prefs.theme) root.dataset.theme = prefs.theme; else delete root.dataset.theme;
+    if (prefs.accent) {
+      root.style.setProperty('--accent', prefs.accent);
+      root.style.setProperty('--on-accent', isLight(prefs.accent) ? '#2b2116' : '#fbf7f1');
+    } else { root.style.removeProperty('--accent'); root.style.removeProperty('--on-accent'); }
+    if (prefs.bgColor) root.style.setProperty('--page', prefs.bgColor); else root.style.removeProperty('--page');
+    $('bg').style.backgroundImage = prefs.bg || '';
+    document.body.classList.toggle('has-bg', !!prefs.bg);
+    $('bg-dim').style.opacity = prefs.bg ? (prefs.dim ?? 20) / 100 : 0;
+  }
+  function renderPrefs() {
+    $('theme').value = prefs.theme || '';
+    $('accent-swatches').innerHTML = [['', 'Default'], ...PALETTE.map(c => [c, c])].map(([c, label]) =>
+      `<button class="swatch ${(prefs.accent || '') === c ? 'active' : ''}" data-accent="${c}" title="${label}"
+        style="background:${c || 'linear-gradient(135deg,#4b4d26 50%,#80916d 50%)'}"></button>`).join('') +
+      `<label title="Custom color" style="display:flex"><input type="color" id="accent-custom" value="${prefs.accent || '#4b4d26'}" style="margin:0;width:44px"></label>`;
+    $('bg-presets').innerHTML = BG_PRESETS.map((p, i) =>
+      `<button class="preset ${(prefs.bg || '') === p.css ? 'active' : ''}" data-preset="${i}" title="${p.name}"
+        style="background:${p.css || 'var(--page)'}"></button>`).join('');
+    $('bg-color').value = prefs.bgColor || '#f4ede3';
+    $('bg-dim').value = prefs.dim ?? 20;
+    $('bg-dim-val').textContent = `(${prefs.dim ?? 20}%)`;
+    $('bg-dim-wrap').hidden = !prefs.bg;
+  }
+  $('theme').addEventListener('input', e => { prefs.theme = e.target.value; savePrefs(); });
+  $('accent-swatches').addEventListener('click', e => {
+    if (e.target.dataset.accent === undefined) return;
+    prefs.accent = e.target.dataset.accent; savePrefs();
+  });
+  $('accent-swatches').addEventListener('change', e => { if (e.target.id === 'accent-custom') { prefs.accent = e.target.value; savePrefs(); } });
+  $('bg-presets').addEventListener('click', e => {
+    const i = e.target.dataset.preset; if (i === undefined) return;
+    prefs.bg = BG_PRESETS[i].css; savePrefs();
+  });
+  $('bg-color').addEventListener('change', e => { prefs.bgColor = e.target.value; prefs.bg = ''; savePrefs(); });
+  $('bg-reset').addEventListener('click', () => { delete prefs.bgColor; delete prefs.bg; delete prefs.dim; savePrefs(); });
+  $('bg-dim').addEventListener('input', e => { prefs.dim = Number(e.target.value); applyPrefs(); $('bg-dim-val').textContent = `(${prefs.dim}%)`; });
+  $('bg-dim').addEventListener('change', savePrefs);
+  $('bg-url-use').addEventListener('click', () => {
+    const url = $('bg-url').value.trim();
+    if (!/^https?:\/\//i.test(url)) { alert('Paste a link that starts with http:// or https://'); return; }
+    prefs.bg = `url("${url.replace(/["\\]/g, encodeURIComponent)}")`; $('bg-url').value = ''; savePrefs();
+  });
+  $('bg-upload-btn').addEventListener('click', () => $('bg-upload').click());
+  $('bg-upload').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    try {
+      // shrink to at most 1600px so it fits in browser storage
+      const img = await createImageBitmap(file);
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      prefs.bg = `url("${c.toDataURL('image/jpeg', 0.8)}")`;
+      if (prefs.dim === undefined) prefs.dim = 20;
+      savePrefs();
+    } catch { alert('Couldn’t read that image. Try a JPG or PNG.'); }
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
+
+  // ---------- backup ----------
   function download(name, text, type) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type }));
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
-  $('b-export').addEventListener('click', () => download(`wallet-tracker-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
+  const fileSlug = () => profile.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profile';
+  $('b-export').addEventListener('click', () => download(`wallet-tracker-${fileSlug()}-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
   $('b-csv').addEventListener('click', () => {
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = [['date', 'type', 'wallet', 'to_wallet', 'category', 'amount', 'note'].join(',')];
+    const lines = [['date', 'type', 'wallet', 'to_wallet', 'category', 'amount', 'monthly', 'note'].join(',')];
     [...state.txns].sort((a, b) => a.date.localeCompare(b.date)).forEach(t =>
-      lines.push([t.date, t.type, q(walletName(t.walletId)), q(t.toWalletId ? walletName(t.toWalletId) : ''), q(t.category), t.amount, q(t.note)].join(',')));
-    download(`wallet-transactions-${today()}.csv`, lines.join('\n'), 'text/csv');
+      lines.push([t.date, t.type, q(walletName(t.walletId)), q(t.toWalletId ? walletName(t.toWalletId) : ''), q(t.category), t.amount, t.recurringId ? 'yes' : '', q(t.note)].join(',')));
+    download(`wallet-transactions-${fileSlug()}-${today()}.csv`, lines.join('\n'), 'text/csv');
   });
+  $('b-import-btn').addEventListener('click', () => $('b-import').click());
   $('b-import').addEventListener('change', async e => {
     const file = e.target.files[0]; if (!file) return;
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.wallets) || !Array.isArray(data.txns)) throw new Error('Not a Wallet Tracker backup');
-      if (!confirm('Replace all current data with this backup?')) return;
+      if (!confirm(`Replace all of ${profile.name}’s data with this backup?`)) return;
       // tombstone everything currently here so a synced copy doesn't bring it back
       const old = COLS.flatMap(c => state[c].map(r => r.id));
       state = normalize(data);
@@ -678,7 +1076,7 @@
     e.target.value = '';
   });
   $('b-reset').addEventListener('click', () => {
-    if (!confirm('Erase ALL wallets, entries and goals? This cannot be undone.' + (syncCfg ? ' Your other synced devices will be erased too.' : ''))) return;
+    if (!confirm(`Erase ALL of ${profile.name}’s wallets, entries, monthly items and goals? This cannot be undone.` + (syncCfg ? ' Your other synced devices will be erased too.' : ''))) return;
     const old = COLS.flatMap(c => state[c].map(r => r.id));
     state = { ...freshState(), deleted: state.deleted };
     forget(...old);
@@ -687,9 +1085,9 @@
 
   // ---------- sync via a private GitHub Gist ----------
   const SYNC_KEY = KEY + '.sync';
-  const GIST_FILE = 'wallet-tracker.json';
-  let syncCfg = (() => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || null; } catch { return null; } })();
-  const saveCfg = () => { try { syncCfg ? localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)) : localStorage.removeItem(SYNC_KEY); } catch {} };
+  const GIST_PREFIX = 'wallet-tracker';
+  let syncCfg = ls.json(SYNC_KEY);
+  const saveCfg = () => syncCfg ? ls.set(SYNC_KEY, JSON.stringify(syncCfg)) : ls.del(SYNC_KEY);
 
   async function gh(path, opts = {}) {
     const res = await fetch('https://api.github.com' + path, {
@@ -701,23 +1099,25 @@
     if (!res.ok) throw new Error(`GitHub error ${res.status}`);
     return res.json();
   }
-  async function readGist(id) {
-    const g = await gh('/gists/' + id);
-    const f = g.files?.[GIST_FILE];
+  async function readGist() {
+    const g = await gh('/gists/' + syncCfg.gistId);
+    const f = g.files?.[syncCfg.file];
     if (!f) return null;
     const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
     return normalize(JSON.parse(text));
   }
-  async function findGist() {
+  // every Wallet Tracker file on this GitHub account: [{ gistId, file }]
+  async function listSyncFiles() {
+    const found = [];
     for (let page = 1; page <= 10; page++) {
       const list = await gh(`/gists?per_page=100&page=${page}`);
-      const hit = list.find(g => g.files?.[GIST_FILE]);
-      if (hit) return hit.id;
+      for (const g of list) for (const name of Object.keys(g.files || {}))
+        if (name.startsWith(GIST_PREFIX) && name.endsWith('.json')) found.push({ gistId: g.id, file: name });
       if (list.length < 100) break;
     }
-    return null;
+    return found;
   }
-  const gistBody = data => ({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } });
+  const gistBody = data => ({ files: { [syncCfg.file]: { content: JSON.stringify(data) } } });
 
   function merge(a, b) {
     const deleted = { ...a.deleted };
@@ -734,8 +1134,8 @@
     return out;
   }
   const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort()]);
-  // A device that has never been used: default wallets only, nothing entered or edited.
-  const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && s.wallets.every(w => !w.u && !w.opening);
+  // A profile that has never been used: default wallets only, nothing entered or edited.
+  const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length && s.wallets.every(w => !w.u && !w.opening);
 
   let syncing = false, syncAgain = false, syncTimer;
   function scheduleSync() {
@@ -748,9 +1148,10 @@
     if (syncing) { syncAgain = true; return; }
     syncing = true; renderSync('Syncing…');
     try {
-      const remote = await readGist(syncCfg.gistId) || normalize({});
-      const merged = merge(state, remote);   // uses the latest local state, after the await
-      if (sig(merged) !== sig(state)) { state = normalize(merged); persist(); render(); }
+      const remote = await readGist() || normalize({});
+      const merged = normalize(merge(state, remote));   // uses the latest local state, after the await
+      applyRecurringTo(merged);
+      if (sig(merged) !== sig(state)) { state = merged; persist(); render(); }
       if (sig(merged) !== sig(remote)) await gh('/gists/' + syncCfg.gistId, { method: 'PATCH', body: JSON.stringify(gistBody(merged)) });
       syncCfg.lastSync = now(); syncCfg.error = '';
     } catch (err) { syncCfg.error = err.message; }
@@ -758,20 +1159,23 @@
     syncing = false; renderSync();
     if (syncAgain) { syncAgain = false; runSync(); }
   }
+  function applyRecurringTo(s) { const keep = state; state = s; applyRecurring(); state = keep; }
 
   async function connectSync(token) {
-    syncCfg = { token };
+    syncCfg = { token, file: `${GIST_PREFIX}-${fileSlug()}.json` };
     renderSync('Connecting…');
     try {
-      const id = await findGist();
-      if (id) {
-        syncCfg.gistId = id;
-        const remote = await readGist(id);
+      const files = await listSyncFiles();
+      let pick = files.find(f => f.file === syncCfg.file);
+      if (!pick) pick = files.find(f => confirm(`Found synced data “${f.file}” on this GitHub account.\n\nLink ${profile.name} to it?`));
+      if (pick) {
+        Object.assign(syncCfg, pick);
+        const remote = await readGist();
         if (remote && (isPristine(state) || confirm('Found synced data on GitHub.\n\nOK = replace what’s on this device with it\nCancel = merge both (wallets may appear twice)'))) {
-          state = remote; persist(); render();
+          state = remote; applyRecurring(); persist(); render();
         }
       } else {
-        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Wallet Tracker sync data (do not edit)', public: false, ...gistBody(state) }) });
+        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: `Wallet Tracker sync data for ${profile.name} (do not edit)`, public: false, ...gistBody(state) }) });
         syncCfg.gistId = g.id;
       }
       saveCfg();
@@ -786,12 +1190,13 @@
   function renderSync(msg) {
     $('sync-off').hidden = !!syncCfg;
     $('sync-on').hidden = !syncCfg;
-    if (!syncCfg) { $('sync-badge').textContent = ''; return; }
+    if (!syncCfg) { $('sync-badge').textContent = profile.name; return; }
     const time = syncCfg.lastSync && new Date(syncCfg.lastSync).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
     let text = msg || (syncCfg.error ? 'Sync failed: ' + syncCfg.error : time ? 'Synced ' + time : 'Not synced yet');
     if (!msg && !navigator.onLine) text = 'Offline: changes will sync when you’re back online';
     $('sync-status').textContent = text;
-    $('sync-badge').textContent = msg || (!navigator.onLine ? 'Offline' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
+    const short = msg || (!navigator.onLine ? 'Offline' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
+    $('sync-badge').textContent = profile.name + (short ? ' · ' + short : '');
   }
 
   $('sync-connect').addEventListener('click', () => {
@@ -804,26 +1209,20 @@
     if (!confirm('Stop syncing on this device? Your data stays here and on GitHub.')) return;
     syncCfg = null; saveCfg(); renderSync();
   });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (applyRecurring()) { persist(); render(); }   // a new month may have started
+    runSync();
+  });
   addEventListener('online', runSync);
   addEventListener('offline', () => renderSync());
-
-  // theme
-  try { const t = localStorage.getItem(KEY + '.theme'); if (t) { document.documentElement.dataset.theme = t; $('theme').value = t; } } catch {}
-  $('theme').addEventListener('input', e => {
-    const v = e.target.value;
-    if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
-    try { localStorage.setItem(KEY + '.theme', v); } catch {}
-    renderCharts();
-  });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderCharts);
 
   // ---------- charts ----------
   const charts = {};
   const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   function baseOptions() {
-    const grid = css('--grid'), muted = css('--muted'), text = css('--text');
+    const muted = css('--muted'), text = css('--text');
     return {
       responsive: true, maintainAspectRatio: false, animation: false,
       interaction: { mode: 'index', intersect: false },
@@ -837,7 +1236,7 @@
       },
       scales: {
         x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: muted } },
-        y: { beginAtZero: true, grid: { color: grid }, border: { display: false },
+        y: { beginAtZero: true, grid: { color: css('--grid') }, border: { display: false },
              ticks: { color: muted, callback: v => '₱' + Number(v).toLocaleString('en-PH', { notation: 'compact' }) } },
       },
     };
@@ -946,6 +1345,7 @@
 
     renderWalletOptions();
     setType(entryType);
+    renderRecurring();
     renderTxns();
     renderGoals();
 
@@ -962,15 +1362,13 @@
 
   $('wallet-list').addEventListener('click', e => { if (e.target.dataset.rec) reconcile(e.target.dataset.rec); });
 
-  // offline support + ask the browser not to evict saved data (only works over http/https)
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-  navigator.storage?.persist?.().catch(() => {});
-
   $('f-date').value = today();
   $('cat-month').value = thisMonth();
   $('t-month').value = thisMonth();
+  if (applyRecurring()) persist();
+  applyPrefs();
+  renderPrefs();
+  renderProfile();
   render();
   renderSync();
   runSync();
