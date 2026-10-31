@@ -1,5 +1,5 @@
 // Offline cache for the app shell. Bump VERSION whenever any of these files change.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'vendor/chart.umd.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

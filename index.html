@@ -171,6 +171,13 @@
   .between { justify-content: space-between; }
   .note-box { font-size: 13px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
 
+  .cc .owed { font-size: 20px; font-weight: 650; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+  .cc .bar-track { margin: 8px 0 6px; }
+  .cc .bar-fill.high { background: var(--bad); }
+  .cc .line { font-size: 13px; color: var(--text-2); }
+  .alert { border-color: var(--bad); }
+  .alert div + div { margin-top: 4px; }
+
   .recur-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
   .recur-row:last-child { border-bottom: 0; }
   .tag { font-size: 12px; color: var(--muted); }
@@ -286,8 +293,9 @@
 
   <!-- OVERVIEW -->
   <section id="tab-overview" class="tab active stack">
+    <div id="cc-alert" class="card alert" hidden></div>
     <div class="grid cols-4">
-      <div class="card stat"><div class="label">Total balance</div><div class="value" id="st-total">—</div></div>
+      <div class="card stat"><div class="label">Total balance</div><div class="value" id="st-total">—</div><div class="small muted" id="st-total-sub"></div></div>
       <div class="card stat"><div class="label">Revenue this month</div><div class="value" id="st-income">—</div></div>
       <div class="card stat"><div class="label">Expenses this month</div><div class="value" id="st-expense">—</div></div>
       <div class="card stat"><div class="label">Net this month</div><div class="value" id="st-net">—</div></div>
@@ -296,6 +304,11 @@
     <div class="card">
       <div class="flex between"><h2>Wallets</h2><span class="muted small">Click “Update balance” to match what your app shows</span></div>
       <div class="wallets" id="wallet-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="flex between"><h2>Credit cards</h2><span class="muted small" id="cc-summary"></span></div>
+      <div class="wallets" id="cc-list"></div>
     </div>
 
     <div class="card">
@@ -469,6 +482,31 @@
           <label>Starting balance (₱)<input id="w-open" type="number" step="0.01" value="0"></label>
         </div>
         <button class="btn primary" style="margin-top:8px">Add wallet</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Credit cards</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Card</th><th class="num">Limit</th><th class="num">Owed</th><th>Statement / due</th><th></th></tr></thead>
+          <tbody id="cc-body"></tbody>
+        </table>
+      </div>
+      <form id="cc-form" style="margin-top:16px" autocomplete="off">
+        <h3 id="cc-form-title">Add credit card</h3>
+        <div class="row">
+          <label>Name<input id="cc-name" required placeholder="e.g. BPI Amore"></label>
+          <label>Credit limit (₱)<input id="cc-limit" type="number" step="0.01" min="1" required></label>
+          <label id="cc-owed-wrap">Amount owed now (₱)<input id="cc-owed" type="number" step="0.01" min="0" value="0"></label>
+          <label>Statement day<input id="cc-close" type="number" min="1" max="31" required placeholder="e.g. 25"></label>
+          <label>Payment due day<input id="cc-due" type="number" min="1" max="31" required placeholder="e.g. 15"></label>
+        </div>
+        <p class="small muted" style="margin:8px 0 0">Both days are on your billing statement. Use “Update balance” on the card later if what you owe drifts from the bank’s app.</p>
+        <div class="flex" style="margin-top:8px">
+          <button class="btn primary" id="cc-submit">Add card</button>
+          <button type="button" class="btn" id="cc-cancel" hidden>Cancel</button>
+        </div>
       </form>
     </div>
 
@@ -660,6 +698,12 @@
   function save() { applyRecurring(); persist(); render(); scheduleSync(); }
 
   const walletName = id => state.wallets.find(w => w.id === id)?.name ?? '(deleted)';
+  // Credit cards are wallets with kind 'credit' whose balance is negative (−amount owed),
+  // so charges, payments (transfers in) and refunds reuse the normal entry types.
+  const isCredit = w => w?.kind === 'credit';
+  const isCreditId = id => isCredit(state.wallets.find(w => w.id === id));
+  const cashWallets = () => state.wallets.filter(w => !isCredit(w));
+  const creditCards = () => state.wallets.filter(isCredit);
 
   function balanceOf(walletId) {
     const w = state.wallets.find(w => w.id === walletId);
@@ -685,6 +729,131 @@
     }
     return { income, expense, net: income - expense };
   }
+
+  // ---------- credit card statements ----------
+  const dayIn = (ym, d) => { const [y, m] = ym.split('-').map(Number); return `${ym}-${pad(Math.min(d, new Date(y, m, 0).getDate()))}`; };
+  const prevYm = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`; };
+  const daysUntil = d => Math.round((new Date(d + 'T00:00') - new Date(today() + 'T00:00')) / 86400000);
+
+  function cardStatus(w) {
+    let closeYm = thisMonth();
+    if (dayIn(closeYm, w.closeDay) > today()) closeYm = prevYm(closeYm);
+    const lastClose = dayIn(closeYm, w.closeDay);
+    const due = dayIn(w.dueDay > w.closeDay ? closeYm : nextYm(closeYm), w.dueDay);
+    // what was owed when the last statement closed, minus payments/credits made since
+    let stmt = -(Number(w.opening) || 0), paid = 0;
+    for (const x of state.txns) {
+      const credit = (x.type === 'transfer' && x.toWalletId === w.id) || (x.type === 'income' && x.walletId === w.id)
+        || (x.type === 'adjust' && x.walletId === w.id && x.amount > 0);
+      const charge = (x.type === 'expense' && x.walletId === w.id) || (x.type === 'transfer' && x.walletId === w.id)
+        || (x.type === 'adjust' && x.walletId === w.id && x.amount < 0);
+      if (!credit && !charge) continue;
+      const amt = Math.abs(x.amount);
+      if (x.date <= lastClose) stmt += charge ? amt : -amt;
+      else if (credit) paid += amt;
+    }
+    const owed = -balanceOf(w.id);
+    return {
+      owed, lastClose, nextClose: dayIn(nextYm(closeYm), w.closeDay), due,
+      stmt: Math.max(0, stmt), dueLeft: Math.max(0, Math.round((stmt - paid) * 100) / 100),
+      available: (Number(w.limit) || 0) - owed,
+      util: w.limit > 0 ? owed / w.limit * 100 : 0,
+    };
+  }
+
+  function payCard(id) {
+    const s = cardStatus(state.wallets.find(w => w.id === id));
+    document.querySelector('#nav button[data-tab="overview"]').click();
+    resetForm();
+    setType('transfer');
+    $('f-to').value = id;
+    if ($('f-wallet').value === id) $('f-wallet').value = cashWallets()[0]?.id || '';
+    const amt = s.dueLeft || s.owed;
+    $('f-amount').value = amt > 0 ? amt.toFixed(2) : '';
+    $('form-title').textContent = 'Pay credit card';
+    $('txn-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('f-amount').focus();
+  }
+
+  function renderCards() {
+    const cards = creditCards();
+    const statuses = cards.map(w => [w, cardStatus(w)]);
+    const totalOwed = statuses.reduce((s, [, c]) => s + c.owed, 0);
+    $('cc-summary').textContent = cards.length ? `${peso(totalOwed)} owed` : '';
+    $('cc-list').innerHTML = statuses.map(([w, c]) => {
+      const days = daysUntil(c.due);
+      let line;
+      if (c.dueLeft > 0 && days < 0) line = `<span class="neg">⚠ ${peso(c.dueLeft)} overdue by ${-days} day${days === -1 ? '' : 's'}</span>`;
+      else if (c.dueLeft > 0) line = `${peso(c.dueLeft)} due ${fmtDate(c.due)} <span class="${days <= 7 ? 'neg' : 'muted'}">(${days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`})</span>`;
+      else if (c.stmt > 0) line = `<span class="pos">✓ Statement paid</span> · next closes ${fmtDate(c.nextClose)}`;
+      else line = `Nothing due · next statement ${fmtDate(c.nextClose)}`;
+      return `<div class="wallet cc">
+        <div class="name">${esc(w.name)}</div>
+        <div class="owed">${peso(c.owed)}</div>
+        <div class="line">owed of ${peso(Number(w.limit) || 0)} · ${peso(c.available)} available</div>
+        <div class="bar-track"><div class="bar-fill ${c.util >= 80 ? 'high' : ''}" style="width:${Math.max(0, Math.min(100, c.util))}%"></div></div>
+        <div class="line">${c.util.toFixed(0)}% used${c.util >= 80 ? ' · high' : ''}</div>
+        <div class="line" style="margin-top:6px">${line}</div>
+        <div style="margin-top:6px"><button class="link" data-pay="${w.id}" style="padding-left:0">Pay</button><button class="link" data-rec="${w.id}">Update balance</button></div>
+      </div>`;
+    }).join('') || '<div class="empty" style="padding:12px 0">No credit cards yet. Add one in Settings → Credit cards.</div>';
+
+    const alerts = statuses.filter(([, c]) => c.dueLeft > 0 && daysUntil(c.due) <= 7).map(([w, c]) => {
+      const d = daysUntil(c.due);
+      return `<div><strong>${esc(w.name)}</strong>: ${peso(c.dueLeft)} ${d < 0 ? `was due ${fmtDate(c.due)} (overdue)` : d === 0 ? 'due today' : `due in ${d} day${d === 1 ? '' : 's'} (${fmtDate(c.due)})`}
+        <button class="link" data-pay="${w.id}">Pay now</button></div>`;
+    });
+    $('cc-alert').innerHTML = alerts.join('');
+    $('cc-alert').hidden = !alerts.length;
+
+    $('cc-body').innerHTML = statuses.map(([w, c]) => `<tr><td>${esc(w.name)}</td><td class="num">${peso(Number(w.limit) || 0)}</td>
+      <td class="num">${peso(c.owed)}</td><td>closes day ${w.closeDay} · due day ${w.dueDay}</td>
+      <td><button class="link" data-act="edit" data-id="${w.id}">Edit</button><button class="link danger" data-act="del" data-id="${w.id}">Remove</button></td></tr>`).join('');
+    return totalOwed;
+  }
+  ['cc-list', 'cc-alert'].forEach(id => $(id).addEventListener('click', e => {
+    if (e.target.dataset.pay) payCard(e.target.dataset.pay);
+    if (e.target.dataset.rec) reconcile(e.target.dataset.rec);
+  }));
+
+  let editingCard = null;
+  function resetCardForm() {
+    editingCard = null;
+    $('cc-form').reset(); $('cc-owed').value = 0;
+    $('cc-form-title').textContent = 'Add credit card';
+    $('cc-submit').textContent = 'Add card';
+    $('cc-cancel').hidden = true; $('cc-owed-wrap').hidden = false;
+  }
+  $('cc-cancel').addEventListener('click', resetCardForm);
+  $('cc-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const fields = {
+      name: $('cc-name').value.trim(), limit: parseFloat($('cc-limit').value) || 0,
+      closeDay: Math.min(31, Math.max(1, parseInt($('cc-close').value, 10))), dueDay: Math.min(31, Math.max(1, parseInt($('cc-due').value, 10))),
+      u: now(),
+    };
+    if (editingCard) Object.assign(state.wallets.find(w => w.id === editingCard), fields);
+    else state.wallets.push({ id: uid(), kind: 'credit', opening: -(parseFloat($('cc-owed').value) || 0), ...fields });
+    resetCardForm();
+    save();
+  });
+  $('cc-body').addEventListener('click', e => {
+    const { act, id } = e.target.dataset; if (!id) return;
+    const w = state.wallets.find(x => x.id === id);
+    if (act === 'edit') {
+      editingCard = id;
+      $('cc-name').value = w.name; $('cc-limit').value = w.limit; $('cc-close').value = w.closeDay; $('cc-due').value = w.dueDay;
+      $('cc-owed-wrap').hidden = true;
+      $('cc-form-title').textContent = `Edit ${w.name}`;
+      $('cc-submit').textContent = 'Save card'; $('cc-cancel').hidden = false;
+      $('cc-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    if (act === 'del') {
+      const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id);
+      if (used) { alert(`${w.name} has entries or monthly items. Delete those first, or keep the card.`); return; }
+      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
+    }
+  });
 
   // ---------- monthly (recurring) entries ----------
   // A rule creates one entry per month with a predictable id (rule@YYYY-MM), so synced devices
@@ -760,7 +929,7 @@
     $('f-repeat-label').textContent = type === 'income'
       ? 'Monthly revenue (adds itself every month on this day)'
       : 'Monthly expense (adds itself every month on this day)';
-    $('f-wallet-label').textContent = type === 'transfer' ? 'From wallet' : 'Wallet';
+    $('f-wallet-label').textContent = type === 'transfer' ? 'From wallet' : type === 'expense' ? 'Paid with' : 'Into wallet';
     $('cat-list').innerHTML = (CATS[type] || []).concat(usedCategories(type))
       .filter((c, i, a) => a.indexOf(c) === i).map(c => `<option value="${esc(c)}">`).join('');
   }
@@ -790,7 +959,7 @@
       amount,
       walletId: $('f-wallet').value,
       toWalletId: entryType === 'transfer' ? $('f-to').value : undefined,
-      category: entryType === 'transfer' ? 'Transfer' : ($('f-cat').value.trim() || 'Other'),
+      category: entryType === 'transfer' ? (isCreditId($('f-to').value) ? 'Card payment' : 'Transfer') : ($('f-cat').value.trim() || 'Other'),
       date: $('f-date').value || today(),
       note: $('f-note').value.trim(),
       u: now(),
@@ -830,14 +999,17 @@
   }
 
   function reconcile(walletId) {
-    const current = balanceOf(walletId);
-    const input = prompt(`Actual ${walletName(walletId)} balance shown in the app (₱):`, current.toFixed(2));
+    const current = balanceOf(walletId), credit = isCreditId(walletId);
+    const input = credit
+      ? prompt(`Amount you currently owe on ${walletName(walletId)} (₱), as shown in the bank’s app:`, (-current).toFixed(2))
+      : prompt(`Actual ${walletName(walletId)} balance shown in the app (₱):`, current.toFixed(2));
     if (input === null) return;
-    const actual = parseFloat(input.replace(/[₱,\s]/g, ''));
+    let actual = parseFloat(input.replace(/[₱,\s]/g, ''));
     if (isNaN(actual)) { alert('Not a valid number.'); return; }
+    if (credit) actual = -Math.abs(actual);
     const diff = Math.round((actual - current) * 100) / 100;
     if (diff === 0) return;
-    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: `Set to ${peso(actual)}`, u: now() });
+    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: credit ? `Owed set to ${peso(-actual)}` : `Set to ${peso(actual)}`, u: now() });
     save();
   }
 
@@ -865,7 +1037,9 @@
       const amt = t.type === 'adjust' ? peso(t.amount) : sign + peso(t.amount);
       const wallet = t.type === 'transfer' ? `${esc(walletName(t.walletId))} → ${esc(walletName(t.toWalletId))}` : esc(walletName(t.walletId));
       const cat = esc(t.category) + (t.recurringId ? ' <span class="tag" title="Monthly">↻ monthly</span>' : '');
-      return `<tr><td class="c-date">${t.date}</td><td class="c-type">${TYPE_LABEL[t.type]}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${cat}</td>
+      const label = t.type === 'transfer' && isCreditId(t.toWalletId) ? 'Card payment'
+        : t.type === 'income' && isCreditId(t.walletId) ? 'Card refund' : TYPE_LABEL[t.type];
+      return `<tr><td class="c-date">${t.date}</td><td class="c-type">${label}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${cat}</td>
         <td class="num c-amt ${cls}">${amt}</td><td class="note c-note">${esc(t.note)}</td>
         <td class="c-act"><button class="link" data-act="edit" data-id="${t.id}">Edit</button><button class="link danger" data-act="del" data-id="${t.id}">Delete</button></td></tr>`;
     }).join('');
@@ -1360,7 +1534,10 @@
 
   // ---------- render ----------
   function renderWalletOptions() {
-    const opts = state.wallets.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    const optList = ws => ws.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    const opts = creditCards().length
+      ? `<optgroup label="Wallets">${optList(cashWallets())}</optgroup><optgroup label="Credit cards">${optList(creditCards())}</optgroup>`
+      : optList(state.wallets);
     const keep = id => { const el = $(id); const v = el.value; return () => { if ([...el.options].some(o => o.value === v)) el.value = v; }; };
     const r1 = keep('f-wallet'), r2 = keep('f-to'), r3 = keep('t-wallet');
     $('f-wallet').innerHTML = opts;
@@ -1371,20 +1548,22 @@
   }
 
   function render() {
-    const total = state.wallets.reduce((s, w) => s + balanceOf(w.id), 0);
+    const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
+    const owed = renderCards();
     const m = monthTotals(thisMonth());
     $('st-total').textContent = peso(total);
+    $('st-total-sub').textContent = creditCards().length ? `${peso(total - owed)} after card debt` : '';
     $('st-income').textContent = peso(m.income);
     $('st-expense').textContent = peso(m.expense);
     $('st-net').textContent = peso(m.net);
     $('st-net').className = 'value ' + (m.net > 0 ? 'pos' : m.net < 0 ? 'neg' : '');
 
-    $('wallet-list').innerHTML = state.wallets.map(w => `<div class="wallet">
+    $('wallet-list').innerHTML = cashWallets().map(w => `<div class="wallet">
       <div class="name">${esc(w.name)}</div><div class="bal">${peso(balanceOf(w.id))}</div>
       <button class="link" data-rec="${w.id}" style="padding:0">Update balance</button></div>`).join('') ||
       '<div class="empty">No wallets. Add one in Settings.</div>';
 
-    $('w-body').innerHTML = state.wallets.map(w => `<tr><td>${esc(w.name)}</td><td class="num">${peso(Number(w.opening) || 0)}</td>
+    $('w-body').innerHTML = cashWallets().map(w => `<tr><td>${esc(w.name)}</td><td class="num">${peso(Number(w.opening) || 0)}</td>
       <td class="num">${peso(balanceOf(w.id))}</td>
       <td><button class="link" data-act="rename" data-id="${w.id}">Rename</button><button class="link" data-act="opening" data-id="${w.id}">Edit start</button><button class="link danger" data-act="del" data-id="${w.id}">Remove</button></td></tr>`).join('');
 
