@@ -345,6 +345,34 @@
     </div>
 
     <div class="card">
+      <div class="flex between" style="margin-bottom:8px">
+        <h2 style="margin:0">Loans</h2>
+        <span class="flex"><span class="muted small" id="loan-summary"></span><button class="btn" id="loan-new-btn">+ New loan</button></span>
+      </div>
+      <form id="loan-form" hidden autocomplete="off" style="margin:8px 0 12px">
+        <div class="seg" id="loan-dir">
+          <button type="button" data-dir="lent" class="active">I lent money</button>
+          <button type="button" data-dir="borrowed">I borrowed money</button>
+        </div>
+        <div class="row">
+          <label><span id="ln-person-label">Who borrowed?</span><input id="ln-person" required placeholder="Name"></label>
+          <label>Amount (₱)<input id="ln-amount" type="number" step="0.01" min="0.01" required></label>
+          <label>Total to pay back (₱)<input id="ln-total" type="number" step="0.01" min="0" placeholder="Same as amount"></label>
+          <label>Date<input id="ln-date" type="date" required></label>
+          <label>Pay back by<input id="ln-due" type="date" required></label>
+          <label><span id="ln-wallet-label">Paid from</span><select id="ln-wallet"></select></label>
+        </div>
+        <label style="margin-top:8px">Note<input id="ln-note" placeholder="Optional"></label>
+        <p class="small muted" style="margin:6px 0 0">Set “Total to pay back” higher than the amount if there’s interest; the extra counts as revenue (or an expense if you borrowed) when it’s paid.</p>
+        <div class="flex" style="margin-top:12px">
+          <button class="btn primary" id="ln-submit">Save loan</button>
+          <button type="button" class="btn" id="ln-cancel">Cancel</button>
+        </div>
+      </form>
+      <div id="loan-list"></div>
+    </div>
+
+    <div class="card">
       <h2 id="form-title">Add entry</h2>
       <div class="seg" id="type-seg">
         <button data-type="expense" class="active">Expense</button>
@@ -409,7 +437,7 @@
         <label>Type<select id="t-type">
           <option value="">All</option><option value="income">Revenue</option><option value="expense">Expense</option>
           <option value="transfer">Transfer</option><option value="adjust">Adjustment</option><option value="monthly">Monthly only</option>
-          <option value="installment">Installments only</option><option value="plan">Plan / trip expenses</option>
+          <option value="installment">Installments only</option><option value="plan">Plan / trip expenses</option><option value="loan">Loans</option>
         </select></label>
         <button class="btn" id="t-clear">Show all months</button>
       </div>
@@ -618,7 +646,7 @@
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
     income: ['Salary', 'Freelance', 'Business', 'Allowance', 'Gift', 'Refund', 'Interest', 'Other'],
   };
-  const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans'];
+  const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans', 'loans'];
   const PALETTE = ['#4b4d26', '#80916d', '#9b6a5b', '#613a2b', '#cbb397'];
   const ISLAND_COLORS = ['#fbf7f1', '#ffffff', '#e9dfd0', '#dfe4d4', '#cbb397', '#80916d', '#9b6a5b', '#4b4d26', '#613a2b', '#221f18'];
   const BG_PRESETS = [
@@ -748,9 +776,9 @@
   // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
   // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], deleted: {} };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {} };
   }
-  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], deleted: {}, ...s });
+  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {}, ...s });
   function load() {
     const s = ls.json(KEY);
     return s ? normalize(s) : freshState();
@@ -761,7 +789,7 @@
   function persist() { ls.set(KEY, JSON.stringify(state)); }
   function save() { applyRecurring(); persist(); render(); scheduleSync(); }
 
-  const walletName = id => state.wallets.find(w => w.id === id)?.name ?? '(deleted)';
+  const walletName = id => id ? state.wallets.find(w => w.id === id)?.name ?? '(deleted)' : 'Not tracked';
   // Credit cards are wallets with kind 'credit' whose balance is negative (−amount owed),
   // so charges, payments (transfers in) and refunds reuse the normal entry types.
   const isCredit = w => w?.kind === 'credit';
@@ -776,6 +804,7 @@
       if (t.type === 'income' && t.walletId === walletId) b += t.amount;
       else if (t.type === 'expense' && t.walletId === walletId) b -= t.amount;
       else if (t.type === 'adjust' && t.walletId === walletId) b += t.amount;
+      else if (t.type === 'loan' && t.walletId === walletId) b += t.dir === 'in' ? t.amount : -t.amount;
       else if (t.type === 'transfer') {
         if (t.walletId === walletId) b -= t.amount;
         if (t.toWalletId === walletId) b += t.amount;
@@ -886,8 +915,7 @@
       return `<div><strong>${esc(w.name)}</strong>: ${peso(c.dueLeft)} ${d < 0 ? `was due ${fmtDate(c.due)} (overdue)` : d === 0 ? 'due today' : `due in ${d} day${d === 1 ? '' : 's'} (${fmtDate(c.due)})`}
         <button class="link" data-pay="${w.id}">Pay now</button></div>`;
     });
-    $('cc-alert').innerHTML = alerts.join('');
-    $('cc-alert').hidden = !alerts.length;
+    cardAlerts = alerts;
 
     $('cc-body').innerHTML = statuses.map(([w, c]) => `<tr><td>${esc(w.name)}</td><td class="num">${peso(Number(w.limit) || 0)}</td>
       <td class="num">${peso(c.owed)}</td><td>closes day ${w.closeDay} · due day ${w.dueDay}</td>
@@ -897,7 +925,164 @@
   ['cc-list', 'cc-alert'].forEach(id => $(id).addEventListener('click', e => {
     if (e.target.dataset.pay) payCard(e.target.dataset.pay);
     if (e.target.dataset.rec) reconcile(e.target.dataset.rec);
+    if (e.target.dataset.loanpay) {
+      payingLoan = e.target.dataset.loanpay; renderLoans();
+      $('loan-list').querySelector(`[data-payform="${payingLoan}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }));
+
+  // one reminder box for card bills and loan deadlines
+  let cardAlerts = [], loanAlerts = [];
+  function renderAlerts() {
+    const all = [...cardAlerts, ...loanAlerts];
+    $('cc-alert').innerHTML = all.join('');
+    $('cc-alert').hidden = !all.length;
+  }
+
+  // ---------- loans ----------
+  // Lent/borrowed money and repayments are 'loan' entries: they move wallet balances but aren't
+  // revenue or expenses. Anything paid back beyond the original amount is interest, recorded as
+  // revenue (you lent) or an expense (you borrowed).
+  let loanDir = 'lent', editingLoan = null, payingLoan = null, showPaidLoans = false;
+  const whenText = days => days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`;
+  function loanStatus(l) {
+    const repaid = state.txns.filter(t => t.loanId === l.id && t.loanRole === 'repay').reduce((s, t) => s + t.amount, 0);
+    const total = l.total || l.principal;
+    const left = Math.max(0, round2(total - repaid));
+    return { repaid, total, left, paid: left === 0, days: daysUntil(l.due) };
+  }
+  const cashOptions = (selected = '') => '<option value="">Not from a tracked wallet</option>'
+    + cashWallets().map(w => `<option value="${w.id}" ${w.id === selected ? 'selected' : ''}>${esc(w.name)}</option>`).join('');
+
+  function setLoanDir(dir) {
+    loanDir = dir;
+    document.querySelectorAll('#loan-dir button').forEach(b => b.classList.toggle('active', b.dataset.dir === dir));
+    $('ln-person-label').textContent = dir === 'lent' ? 'Who borrowed?' : 'Who lent you?';
+    $('ln-wallet-label').textContent = dir === 'lent' ? 'Paid from' : 'Received into';
+  }
+  $('loan-dir').addEventListener('click', e => { if (e.target.dataset.dir && !editingLoan) setLoanDir(e.target.dataset.dir); });
+
+  function openLoanForm(l) {
+    editingLoan = l?.id || null;
+    $('loan-form').reset();
+    $('loan-form').hidden = false;
+    $('ln-wallet').innerHTML = cashOptions(l ? l.walletId : cashWallets()[0]?.id);
+    setLoanDir(l ? l.dir : 'lent');
+    ['ln-amount', 'ln-date', 'ln-wallet'].forEach(id => { $(id).disabled = !!l; });
+    if (l) {
+      $('ln-person').value = l.person; $('ln-amount').value = l.principal; $('ln-total').value = l.total;
+      $('ln-date').value = l.date; $('ln-due').value = l.due; $('ln-note').value = l.note || '';
+    } else $('ln-date').value = today();
+    $('ln-submit').textContent = l ? 'Save changes' : 'Save loan';
+    $('loan-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('ln-person').focus();
+  }
+  function closeLoanForm() { editingLoan = null; $('loan-form').reset(); $('loan-form').hidden = true; }
+  $('loan-new-btn').addEventListener('click', () => $('loan-form').hidden || editingLoan ? openLoanForm() : closeLoanForm());
+  $('ln-cancel').addEventListener('click', closeLoanForm);
+
+  $('loan-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const l = editingLoan && state.loans.find(x => x.id === editingLoan);
+    const principal = l ? l.principal : round2(parseFloat($('ln-amount').value));
+    const total = round2(parseFloat($('ln-total').value) || principal);
+    const date = l ? l.date : $('ln-date').value, due = $('ln-due').value;
+    if (!(principal > 0)) return;
+    if (total < principal) { alert('“Total to pay back” can’t be less than the amount.'); return; }
+    if (due < date) { alert('The pay-back date is before the loan date.'); return; }
+    const fields = { person: $('ln-person').value.trim(), total, due, note: $('ln-note').value.trim(), u: now() };
+    if (l) Object.assign(l, fields);
+    else {
+      const loan = { id: uid(), dir: loanDir, principal, date, walletId: $('ln-wallet').value, ...fields };
+      state.loans.push(loan);
+      state.txns.push({ id: uid(), type: 'loan', dir: loanDir === 'lent' ? 'out' : 'in', amount: principal, walletId: loan.walletId,
+        category: 'Loan', date, note: loanDir === 'lent' ? `Lent to ${loan.person}` : `Borrowed from ${loan.person}`,
+        loanId: loan.id, loanRole: 'start', u: now() });
+    }
+    closeLoanForm();
+    save();
+  });
+
+  function recordLoanPayment(l, amount, walletId, date) {
+    const s = loanStatus(l), inbound = l.dir === 'lent';
+    // repayments cover the original amount first; the rest is interest
+    const principalPart = round2(Math.max(0, Math.min(amount, l.principal - Math.min(l.principal, s.repaid))));
+    const interestPart = round2(amount - principalPart);
+    const note = inbound ? `${l.person} paid back` : `Paid back ${l.person}`;
+    if (principalPart > 0) state.txns.push({ id: uid(), type: 'loan', dir: inbound ? 'in' : 'out', amount: principalPart, walletId,
+      category: 'Loan', date, note, loanId: l.id, loanRole: 'repay', u: now() });
+    if (interestPart > 0) state.txns.push({ id: uid(), type: inbound ? 'income' : 'expense', amount: interestPart, walletId,
+      category: 'Loan interest', date, note: note + ' (interest)', loanId: l.id, loanRole: 'repay', u: now() });
+    payingLoan = null;
+    save();
+  }
+
+  $('loan-list').addEventListener('click', e => {
+    const { lact, id } = e.target.dataset; if (!lact) return;
+    const l = state.loans.find(x => x.id === id);
+    if (lact === 'pay') { payingLoan = id; renderLoans(); $('loan-list').querySelector(`[data-payform="${id}"] input`)?.focus(); }
+    if (lact === 'pay-cancel') { payingLoan = null; renderLoans(); }
+    if (lact === 'edit') openLoanForm(l);
+    if (lact === 'toggle-paid') { showPaidLoans = !showPaidLoans; renderLoans(); }
+    if (lact === 'del' && confirm(`Delete this loan with ${l.person}? Its entries (including repayments) are removed from your history and wallet balances.`)) {
+      const ids = state.txns.filter(t => t.loanId === id).map(t => t.id);
+      state.txns = state.txns.filter(t => t.loanId !== id);
+      state.loans = state.loans.filter(x => x.id !== id);
+      forget(id, ...ids);
+      save();
+    }
+  });
+  $('loan-list').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = e.target, l = state.loans.find(x => x.id === f.dataset.payform);
+    const amount = round2(parseFloat(f.elements.amount.value));
+    if (!(amount > 0)) return;
+    const { left } = loanStatus(l);
+    if (amount > left + 0.005 && !confirm(`That’s more than the ${peso(left)} left. The extra will count as interest. Record it anyway?`)) return;
+    recordLoanPayment(l, amount, f.elements.wallet.value, f.elements.date.value || today());
+  });
+
+  function renderLoans() {
+    const rows = state.loans.map(l => [l, loanStatus(l)]);
+    const owedToMe = rows.filter(([l]) => l.dir === 'lent').reduce((s, [, x]) => s + x.left, 0);
+    const iOwe = rows.filter(([l]) => l.dir === 'borrowed').reduce((s, [, x]) => s + x.left, 0);
+    $('loan-summary').textContent = rows.length ? `Owed to you ${peso(owedToMe)} · You owe ${peso(iOwe)}` : '';
+    const open = rows.filter(([, s]) => !s.paid).sort((a, b) => a[0].due.localeCompare(b[0].due));
+    const paid = rows.filter(([, s]) => s.paid);
+    const row = ([l, s]) => {
+      const lent = l.dir === 'lent';
+      const due = s.paid ? '<span class="pos">✓ Paid back</span>'
+        : s.days < 0 ? `<span class="neg">⚠ Overdue by ${-s.days} day${s.days === -1 ? '' : 's'} (was due ${fmtDate(l.due)})</span>`
+        : `Pay back by ${fmtDate(l.due)} <span class="${s.days <= 7 ? 'neg' : 'muted'}">(${whenText(s.days)})</span>`;
+      const payForm = payingLoan === l.id && !s.paid ? `<form data-payform="${l.id}" style="margin-top:8px"><div class="row">
+          <label>Amount (₱)<input name="amount" type="number" step="0.01" min="0.01" value="${s.left.toFixed(2)}" required></label>
+          <label>${lent ? 'Received into' : 'Paid from'}<select name="wallet">${cashOptions(l.walletId)}</select></label>
+          <label>Date<input name="date" type="date" value="${today()}" required></label>
+          <div class="flex" style="align-self:end"><button class="btn primary">Save payment</button><button type="button" class="btn" data-lact="pay-cancel" data-id="${l.id}">Cancel</button></div>
+        </div></form>` : '';
+      return `<div class="recur-row">
+        <div style="flex:1;min-width:220px">
+          <strong>${lent ? `${esc(l.person)} owes you` : `You owe ${esc(l.person)}`}</strong>
+          <span class="${lent ? 'pos' : 'neg'}">${peso(s.left)}</span>
+          <div class="tag">${peso(s.repaid)} of ${peso(s.total)} paid back · ${lent ? 'lent' : 'borrowed'} ${fmtDate(l.date)} · ${esc(walletName(l.walletId))}${s.total > l.principal ? ` · includes ${peso(s.total - l.principal)} interest` : ''}${l.note ? ' · ' + esc(l.note) : ''}</div>
+          <div class="bar-track" style="max-width:260px"><div class="bar-fill" style="width:${s.total ? Math.min(100, s.repaid / s.total * 100) : 0}%"></div></div>
+          <div class="small">${due}</div>
+          ${payForm}
+        </div>
+        <span>${s.paid ? '' : `<button class="link" data-lact="pay" data-id="${l.id}">Record payment</button>`}<button class="link" data-lact="edit" data-id="${l.id}">Edit</button><button class="link danger" data-lact="del" data-id="${l.id}">Delete</button></span>
+      </div>`;
+    };
+    $('loan-list').innerHTML = (open.map(row).join('')
+        || (paid.length ? '' : '<div class="empty" style="padding:12px 0">Keep track of money you lend or borrow, with a pay-back date.</div>'))
+      + (paid.length ? `<button class="link" data-lact="toggle-paid" style="padding-left:0;margin-top:8px">${showPaidLoans ? 'Hide' : 'Show'} paid-back loans (${paid.length})</button>`
+        + (showPaidLoans ? paid.map(row).join('') : '') : '');
+    loanAlerts = open.filter(([, s]) => s.days <= 7).map(([l, s]) => {
+      const when = s.days < 0 ? `was due ${fmtDate(l.due)} (overdue)` : `due ${whenText(s.days)} (${fmtDate(l.due)})`;
+      return `<div>${l.dir === 'lent' ? `<strong>${esc(l.person)}</strong> should pay you ${peso(s.left)}` : `Pay <strong>${esc(l.person)}</strong> ${peso(s.left)}`} — ${when}
+        <button class="link" data-loanpay="${l.id}">Record payment</button></div>`;
+    });
+    renderAlerts();
+  }
 
   let editingCard = null;
   function resetCardForm() {
@@ -1161,6 +1346,7 @@
   function startEdit(id) {
     const t = state.txns.find(x => x.id === id); if (!t) return;
     if (t.type === 'adjust') { alert('Balance adjustments can only be deleted. Use “Update balance” again to correct.'); return; }
+    if (t.loanId) { alert('This is part of a loan. Edit the loan in Overview → Loans, or delete this entry and record the payment again.'); return; }
     document.querySelector('#nav button[data-tab="overview"]').click();
     editingId = id;
     setType(t.type);
@@ -1207,10 +1393,11 @@
     const m = $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
     const rows = state.txns
       .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w)
-        && (!ty || (ty === 'monthly' ? t.recurringId : ty === 'installment' ? t.installmentId : ty === 'plan' ? t.planId : t.type === ty)))
+        && (!ty || (ty === 'monthly' ? t.recurringId : ty === 'installment' ? t.installmentId : ty === 'plan' ? t.planId
+          : ty === 'loan' ? t.loanId : t.type === ty)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
     $('t-body').innerHTML = rows.map(t => {
-      const sign = t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '';
+      const sign = t.type === 'income' || (t.type === 'loan' && t.dir === 'in') ? '+' : t.type === 'expense' || t.type === 'loan' ? '−' : '';
       const cls = t.type === 'income' ? 'pos' : t.type === 'expense' ? 'neg' : '';
       const amt = t.type === 'adjust' ? peso(t.amount) : sign + peso(t.amount);
       const wallet = t.type === 'transfer' ? `${esc(walletName(t.walletId))} → ${esc(walletName(t.toWalletId))}` : esc(walletName(t.walletId));
@@ -1218,7 +1405,8 @@
       const cat = esc(t.category) + (t.recurringId ? ' <span class="tag" title="Monthly">↻ monthly</span>' : '')
         + (t.installmentId ? ' <span class="tag">▦ installment</span>' : '')
         + (plan ? ` <span class="tag">✈ ${esc(plan.name)}</span>` : '');
-      const label = t.type === 'transfer' && isCreditId(t.toWalletId) ? 'Card payment'
+      const label = t.type === 'loan' ? (t.loanRole === 'repay' ? 'Loan repayment' : t.dir === 'out' ? 'Lent' : 'Borrowed')
+        : t.type === 'transfer' && isCreditId(t.toWalletId) ? 'Card payment'
         : t.type === 'income' && isCreditId(t.walletId) ? 'Card refund' : TYPE_LABEL[t.type];
       return `<tr><td class="c-date">${t.date}</td><td class="c-type">${label}</td><td class="c-wallet">${wallet}</td><td class="c-cat">${cat}</td>
         <td class="num c-amt ${cls}">${amt}</td><td class="note c-note">${esc(t.note)}</td>
@@ -1772,7 +1960,7 @@
   const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort()]);
   // A profile that has never been used: default wallets only, nothing entered or edited.
   const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length
-    && !s.installments.length && !s.plans.length && s.wallets.every(w => !w.u && !w.opening);
+    && !s.installments.length && !s.plans.length && !s.loans.length && s.wallets.every(w => !w.u && !w.opening);
 
   let syncing = false, syncAgain = false, syncTimer;
   function scheduleSync() {
@@ -1969,6 +2157,7 @@
   function render() {
     const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
     const owed = renderCards();
+    renderLoans();
     const m = monthTotals(thisMonth());
     $('st-total').textContent = peso(total);
     $('st-total-sub').textContent = creditCards().length ? `${peso(total - owed)} after card debt` : '';
