@@ -630,12 +630,22 @@
         </div>
       </div>
       <div id="sync-on" hidden>
-        <p id="sync-status" class="small"></p>
+        <p id="sync-status" class="small" style="margin-bottom:4px"></p>
+        <p id="sync-detail" class="small muted" style="margin-top:0"></p>
         <div class="flex">
           <button class="btn" id="sync-now">Sync now</button>
+          <button class="btn" id="sync-change">Change synced data</button>
           <button class="btn danger" id="sync-disconnect">Disconnect this device</button>
         </div>
+        <div id="sync-pick" hidden style="margin-top:12px">
+          <label>Synced data on this GitHub account<select id="sync-files"></select></label>
+          <div class="flex" style="margin-top:8px">
+            <button class="btn primary" id="sync-link">Use this one</button>
+            <button class="btn" id="sync-pick-cancel">Cancel</button>
+          </div>
+        </div>
       </div>
+      <p class="small muted" style="margin-bottom:0">On iPhone and iPad, the Home Screen app and Safari keep separate data — connect sync inside the app you actually use. App version <span id="app-version"></span>.</p>
     </div>
 
     <div class="card">
@@ -654,6 +664,7 @@
 
 <script>
 (() => {
+  const APP_VERSION = 'v11';   // keep in step with VERSION in sw.js
   const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
   const CATS = {
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
@@ -2019,8 +2030,10 @@
     if (!res.ok) throw new Error(`GitHub error ${res.status}`);
     return res.json();
   }
+  const fmtStamp = iso => iso ? new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'unknown';
   async function readGist() {
-    const g = await gh('/gists/' + syncCfg.gistId);
+    // the timestamp keeps Safari from answering with a cached copy
+    const g = await gh(`/gists/${syncCfg.gistId}?t=${Date.now()}`);
     const f = g.files?.[syncCfg.file];
     if (!f) return null;
     const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
@@ -2032,7 +2045,7 @@
     for (let page = 1; page <= 10; page++) {
       const list = await gh(`/gists?per_page=100&page=${page}`);
       for (const g of list) for (const name of Object.keys(g.files || {}))
-        if (name.startsWith(GIST_PREFIX) && name.endsWith('.json')) found.push({ gistId: g.id, file: name });
+        if (name.startsWith(GIST_PREFIX) && name.endsWith('.json')) found.push({ gistId: g.id, file: name, updated: g.updated_at });
       if (list.length < 100) break;
     }
     return found;
@@ -2041,11 +2054,14 @@
 
   function merge(a, b) {
     const deleted = { ...a.deleted };
-    for (const [id, ts] of Object.entries(b.deleted)) deleted[id] = Math.max(deleted[id] || 0, ts);
+    for (const [id, ts] of Object.entries(b.deleted || {})) deleted[id] = Math.max(deleted[id] || 0, ts);
     const out = { deleted };
-    for (const col of COLS) {
+    // also carry collections this version doesn't know about, so an older copy of the app
+    // on another device can't wipe out data a newer version added
+    const cols = new Set([...COLS, ...[a, b].flatMap(s => Object.keys(s).filter(k => Array.isArray(s[k])))]);
+    for (const col of cols) {
       const m = new Map();
-      for (const r of [...a[col], ...b[col]]) {
+      for (const r of [...(a[col] || []), ...(b[col] || [])]) {
         const cur = m.get(r.id);
         if (!cur || (r.u || 0) > (cur.u || 0)) m.set(r.id, r);
       }
@@ -2088,7 +2104,15 @@
     try {
       const files = await listSyncFiles();
       let pick = files.find(f => f.file === syncCfg.file);
-      if (!pick) pick = files.find(f => confirm(`Found synced data “${f.file}” on this GitHub account.\n\nLink ${profile.name} to it?`));
+      if (!pick && files.length === 1) {
+        if (confirm(`This GitHub account already has synced data: “${files[0].file}” (last saved ${fmtStamp(files[0].updated)}).\n\n`
+          + `OK = link ${profile.name} to it (choose this if it’s you on another device)\nCancel = keep ${profile.name}’s data separate`)) pick = files[0];
+      } else if (!pick && files.length > 1) {
+        const n = prompt(`This GitHub account has ${files.length} synced profiles:\n\n`
+          + files.map((f, i) => `${i + 1}. ${f.file} (last saved ${fmtStamp(f.updated)})`).join('\n')
+          + `\n\nType the number to link ${profile.name} to (the one your other device uses), or leave it empty to keep it separate:`);
+        pick = files[parseInt(n, 10) - 1];
+      }
       if (pick) {
         Object.assign(syncCfg, pick);
         const remote = await readGist();
@@ -2116,6 +2140,9 @@
     let text = msg || (syncCfg.error ? 'Sync failed: ' + syncCfg.error : time ? 'Synced ' + time : 'Not synced yet');
     if (!msg && !navigator.onLine) text = 'Offline: changes will sync when you’re back online';
     $('sync-status').textContent = text;
+    $('sync-detail').textContent = syncCfg.gistId
+      ? `This device syncs “${profile.name}” with ${syncCfg.file} (Gist ${syncCfg.gistId.slice(0, 7)}). Your other devices should show the same file and Gist.`
+      : '';
     const short = msg || (!navigator.onLine ? 'Offline' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
     $('sync-badge').textContent = profile.name + (short ? ' · ' + short : '');
   }
@@ -2130,11 +2157,38 @@
     if (!confirm('Stop syncing on this device? Your data stays here and on GitHub.')) return;
     syncCfg = null; saveCfg(); renderSync();
   });
+  // switch this device to a different synced file on the same GitHub account
+  $('sync-change').addEventListener('click', async () => {
+    renderSync('Looking up synced data…');
+    try {
+      const files = await listSyncFiles();
+      $('sync-files').innerHTML = files.map((f, i) => `<option value="${i}" ${f.gistId === syncCfg.gistId && f.file === syncCfg.file ? 'selected' : ''}>
+        ${esc(f.file)} · last saved ${esc(fmtStamp(f.updated))}${f.gistId === syncCfg.gistId && f.file === syncCfg.file ? ' (this device)' : ''}</option>`).join('');
+      $('sync-files').dataset.files = JSON.stringify(files);
+      $('sync-pick').hidden = false;
+    } catch (err) { alert('Could not list synced data: ' + err.message); }
+    renderSync();
+  });
+  $('sync-pick-cancel').addEventListener('click', () => { $('sync-pick').hidden = true; });
+  $('sync-link').addEventListener('click', () => {
+    const f = JSON.parse($('sync-files').dataset.files)[$('sync-files').value];
+    if (!f) return;
+    if (!confirm(`Link this device to ${f.file}? What’s on this device will be merged into it.`)) return;
+    Object.assign(syncCfg, { gistId: f.gistId, file: f.file, error: '' });
+    saveCfg(); $('sync-pick').hidden = true;
+    runSync();
+  });
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (applyRecurring()) { persist(); render(); }   // a new month may have started
     runSync();
   });
+  // iOS restores home-screen apps from memory without always firing visibilitychange
+  addEventListener('pageshow', () => runSync());
+  addEventListener('focus', () => runSync());
+  // pick up changes from other devices while the app stays open
+  setInterval(() => { if (document.visibilityState === 'visible' && !syncing) runSync(); }, 30000);
   addEventListener('online', runSync);
   addEventListener('offline', () => renderSync());
 
@@ -2300,6 +2354,7 @@
   renderPrefs();
   renderProfile();
   render();
+  $('app-version').textContent = APP_VERSION;
   renderSync();
   runSync();
 })();
