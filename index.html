@@ -359,9 +359,22 @@
           <label>Amount (₱)<input id="ln-amount" type="number" step="0.01" min="0.01" required></label>
           <label>Total to pay back (₱)<input id="ln-total" type="number" step="0.01" min="0" placeholder="Same as amount"></label>
           <label>Date<input id="ln-date" type="date" required></label>
-          <label>Pay back by<input id="ln-due" type="date" required></label>
           <label><span id="ln-wallet-label">Paid from</span><select id="ln-wallet"></select></label>
+          <label>Repayment<select id="ln-plan">
+            <option value="once">One payment by a date</option>
+            <option value="periodic">In installments</option>
+          </select></label>
+          <label id="ln-due-wrap">Pay back by<input id="ln-due" type="date" required></label>
+          <label id="ln-freq-wrap" hidden>How often<select id="ln-freq">
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every 2 weeks</option>
+            <option value="semimonthly">Twice a month (15th &amp; end of month)</option>
+            <option value="monthly" selected>Monthly</option>
+          </select></label>
+          <label id="ln-count-wrap" hidden>Number of payments<input id="ln-count" type="number" min="2" max="120" value="6"></label>
+          <label id="ln-first-wrap" hidden>First payment<input id="ln-first" type="date"></label>
         </div>
+        <div class="small muted" id="ln-preview" style="margin-top:6px"></div>
         <label style="margin-top:8px">Note<input id="ln-note" placeholder="Optional"></label>
         <p class="small muted" style="margin:6px 0 0">Set “Total to pay back” higher than the amount if there’s interest; the extra counts as revenue (or an expense if you borrowed) when it’s paid.</p>
         <div class="flex" style="margin-top:12px">
@@ -944,13 +957,75 @@
   // revenue or expenses. Anything paid back beyond the original amount is interest, recorded as
   // revenue (you lent) or an expense (you borrowed).
   let loanDir = 'lent', editingLoan = null, payingLoan = null, showPaidLoans = false;
+  const openSchedules = new Set();
   const whenText = days => days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`;
+  const FREQ_LABEL = { weekly: 'weekly', biweekly: 'every-2-weeks', semimonthly: 'twice-a-month', monthly: 'monthly' };
+  const ymd = x => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+  const addDays = (d, n) => { const x = new Date(d + 'T00:00'); x.setDate(x.getDate() + n); return ymd(x); };
+
+  // Payment due dates. One-time loans have a single payment on `due`; installment loans split
+  // the total evenly (the last payment absorbs rounding).
+  function loanSchedule(l) {
+    const total = l.total || l.principal;
+    if (!l.freq) return [{ n: 1, date: l.due, amount: total }];
+    const count = Math.max(1, l.count || 1), per = round2(total / count), out = [];
+    let ym = l.firstDue.slice(0, 7), half = Number(l.firstDue.slice(8, 10)) <= 15 ? 0 : 1;
+    const anchor = Number(l.firstDue.slice(8, 10));
+    for (let k = 0; k < count; k++) {
+      let date;
+      if (l.freq === 'weekly') date = addDays(l.firstDue, 7 * k);
+      else if (l.freq === 'biweekly') date = addDays(l.firstDue, 14 * k);
+      else if (l.freq === 'monthly') { date = dayIn(ym, anchor); ym = nextYm(ym); }
+      else { date = half === 0 ? `${ym}-15` : dayIn(ym, 31); if (half === 1) ym = nextYm(ym); half = 1 - half; }
+      out.push({ n: k + 1, date, amount: k === count - 1 ? round2(total - per * (count - 1)) : per });
+    }
+    return out;
+  }
+
+  // Repayments fill the schedule from the earliest payment onward.
   function loanStatus(l) {
     const repaid = state.txns.filter(t => t.loanId === l.id && t.loanRole === 'repay').reduce((s, t) => s + t.amount, 0);
     const total = l.total || l.principal;
     const left = Math.max(0, round2(total - repaid));
-    return { repaid, total, left, paid: left === 0, days: daysUntil(l.due) };
+    const t = today(), sched = [];
+    let cum = 0, next = null, behind = 0, overdueAmt = 0, firstOverdue = null;
+    for (const p of loanSchedule(l)) {
+      cum = round2(cum + p.amount);
+      const covered = repaid + 0.005 >= cum;
+      const partial = !covered && repaid > cum - p.amount + 0.005;
+      sched.push({ ...p, state: covered ? 'paid' : p.date < t ? 'overdue' : 'due', partial });
+      if (covered) continue;
+      if (p.date < t) { behind++; overdueAmt = round2(cum - repaid); firstOverdue = firstOverdue || p.date; }
+      else if (!next) next = { ...p, owed: round2(cum - repaid - overdueAmt) };
+    }
+    return {
+      repaid, total, left, paid: left === 0, sched, next, behind, overdueAmt, firstOverdue,
+      days: firstOverdue ? daysUntil(firstOverdue) : next ? daysUntil(next.date) : 0,
+      suggest: overdueAmt > 0 ? overdueAmt : next ? next.owed : left,
+      sortDate: firstOverdue || next?.date || l.due,
+    };
   }
+
+  function loanFormLoan() {
+    const principal = parseFloat($('ln-amount').value) || 0;
+    return { principal, total: parseFloat($('ln-total').value) || principal, freq: $('ln-plan').value === 'periodic' ? $('ln-freq').value : '',
+      count: parseInt($('ln-count').value, 10) || 0, firstDue: $('ln-first').value, due: $('ln-due').value };
+  }
+  function updateLoanPlanUi() {
+    const periodic = $('ln-plan').value === 'periodic';
+    $('ln-due-wrap').hidden = periodic; $('ln-due').required = !periodic;
+    ['ln-freq-wrap', 'ln-count-wrap', 'ln-first-wrap'].forEach(id => { $(id).hidden = !periodic; });
+    $('ln-first').required = periodic;
+    const l = loanFormLoan();
+    if (periodic && l.total > 0 && l.count >= 2 && l.firstDue) {
+      const s = loanSchedule(l), last = s[s.length - 1];
+      $('ln-preview').textContent = `${l.count} ${FREQ_LABEL[l.freq]} payments of ${peso(s[0].amount)}`
+        + (last.amount !== s[0].amount ? ` (last one ${peso(last.amount)})` : '') + ` · first ${fmtDate(s[0].date)}, last ${fmtDate(last.date)}`;
+    } else $('ln-preview').textContent = '';
+  }
+  ['ln-plan', 'ln-freq', 'ln-count', 'ln-first', 'ln-amount', 'ln-total'].forEach(id => $(id).addEventListener('input', updateLoanPlanUi));
+  $('ln-plan').addEventListener('change', updateLoanPlanUi);
+  $('ln-freq').addEventListener('change', updateLoanPlanUi);
   const cashOptions = (selected = '') => '<option value="">Not from a tracked wallet</option>'
     + cashWallets().map(w => `<option value="${w.id}" ${w.id === selected ? 'selected' : ''}>${esc(w.name)}</option>`).join('');
 
@@ -972,7 +1047,10 @@
     if (l) {
       $('ln-person').value = l.person; $('ln-amount').value = l.principal; $('ln-total').value = l.total;
       $('ln-date').value = l.date; $('ln-due').value = l.due; $('ln-note').value = l.note || '';
+      $('ln-plan').value = l.freq ? 'periodic' : 'once';
+      if (l.freq) { $('ln-freq').value = l.freq; $('ln-count').value = l.count; $('ln-first').value = l.firstDue; }
     } else $('ln-date').value = today();
+    updateLoanPlanUi();
     $('ln-submit').textContent = l ? 'Save changes' : 'Save loan';
     $('loan-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('ln-person').focus();
@@ -986,11 +1064,17 @@
     const l = editingLoan && state.loans.find(x => x.id === editingLoan);
     const principal = l ? l.principal : round2(parseFloat($('ln-amount').value));
     const total = round2(parseFloat($('ln-total').value) || principal);
-    const date = l ? l.date : $('ln-date').value, due = $('ln-due').value;
+    const date = l ? l.date : $('ln-date').value;
     if (!(principal > 0)) return;
     if (total < principal) { alert('“Total to pay back” can’t be less than the amount.'); return; }
-    if (due < date) { alert('The pay-back date is before the loan date.'); return; }
-    const fields = { person: $('ln-person').value.trim(), total, due, note: $('ln-note').value.trim(), u: now() };
+    const periodic = $('ln-plan').value === 'periodic';
+    const plan = periodic
+      ? { freq: $('ln-freq').value, count: Math.min(120, Math.max(2, parseInt($('ln-count').value, 10) || 2)), firstDue: $('ln-first').value }
+      : { freq: '', count: 0, firstDue: '' };
+    if ((periodic ? plan.firstDue : $('ln-due').value) < date) { alert('The pay-back date is before the loan date.'); return; }
+    // for installment loans the final deadline is the last scheduled payment
+    const due = periodic ? loanSchedule({ total, ...plan }).at(-1).date : $('ln-due').value;
+    const fields = { person: $('ln-person').value.trim(), total, due, ...plan, note: $('ln-note').value.trim(), u: now() };
     if (l) Object.assign(l, fields);
     else {
       const loan = { id: uid(), dir: loanDir, principal, date, walletId: $('ln-wallet').value, ...fields };
@@ -1024,6 +1108,7 @@
     if (lact === 'pay-cancel') { payingLoan = null; renderLoans(); }
     if (lact === 'edit') openLoanForm(l);
     if (lact === 'toggle-paid') { showPaidLoans = !showPaidLoans; renderLoans(); }
+    if (lact === 'schedule') { openSchedules.has(id) ? openSchedules.delete(id) : openSchedules.add(id); renderLoans(); }
     if (lact === 'del' && confirm(`Delete this loan with ${l.person}? Its entries (including repayments) are removed from your history and wallet balances.`)) {
       const ids = state.txns.filter(t => t.loanId === id).map(t => t.id);
       state.txns = state.txns.filter(t => t.loanId !== id);
@@ -1047,15 +1132,23 @@
     const owedToMe = rows.filter(([l]) => l.dir === 'lent').reduce((s, [, x]) => s + x.left, 0);
     const iOwe = rows.filter(([l]) => l.dir === 'borrowed').reduce((s, [, x]) => s + x.left, 0);
     $('loan-summary').textContent = rows.length ? `Owed to you ${peso(owedToMe)} · You owe ${peso(iOwe)}` : '';
-    const open = rows.filter(([, s]) => !s.paid).sort((a, b) => a[0].due.localeCompare(b[0].due));
+    const open = rows.filter(([, s]) => !s.paid).sort((a, b) => a[1].sortDate.localeCompare(b[1].sortDate));
     const paid = rows.filter(([, s]) => s.paid);
     const row = ([l, s]) => {
       const lent = l.dir === 'lent';
-      const due = s.paid ? '<span class="pos">✓ Paid back</span>'
-        : s.days < 0 ? `<span class="neg">⚠ Overdue by ${-s.days} day${s.days === -1 ? '' : 's'} (was due ${fmtDate(l.due)})</span>`
-        : `Pay back by ${fmtDate(l.due)} <span class="${s.days <= 7 ? 'neg' : 'muted'}">(${whenText(s.days)})</span>`;
+      let due;
+      if (s.paid) due = '<span class="pos">✓ Paid back</span>';
+      else if (s.behind && l.freq) due = `<span class="neg">⚠ ${peso(s.overdueAmt)} overdue · ${s.behind} payment${s.behind > 1 ? 's' : ''} missed since ${fmtDate(s.firstOverdue)}</span>`
+        + (s.next ? ` · next ${peso(s.next.owed)} on ${fmtDate(s.next.date)}` : '');
+      else if (s.behind) due = `<span class="neg">⚠ Overdue by ${-s.days} day${s.days === -1 ? '' : 's'} (was due ${fmtDate(l.due)})</span>`;
+      else if (l.freq) due = `Payment ${s.next.n} of ${l.count}: ${peso(s.next.owed)} due ${fmtDate(s.next.date)} <span class="${s.days <= 7 ? 'neg' : 'muted'}">(${whenText(s.days)})</span>`;
+      else due = `Pay back by ${fmtDate(l.due)} <span class="${s.days <= 7 ? 'neg' : 'muted'}">(${whenText(s.days)})</span>`;
+      const plan = l.freq ? ` · ${l.count} ${FREQ_LABEL[l.freq]} payments of ${peso(s.sched[0].amount)}` : '';
+      const schedule = l.freq && openSchedules.has(l.id) ? `<div class="small" style="margin-top:6px">${s.sched.map(p => `<div class="kv" style="max-width:320px;padding:2px 0">
+          <span class="muted">#${p.n} · ${fmtDate(p.date)}</span><span class="${p.state === 'overdue' ? 'neg' : p.state === 'paid' ? 'pos' : ''}">${peso(p.amount)}
+          ${p.state === 'paid' ? '✓' : p.state === 'overdue' ? (p.partial ? '· part paid, overdue' : '· overdue') : p.partial ? '· part paid' : ''}</span></div>`).join('')}</div>` : '';
       const payForm = payingLoan === l.id && !s.paid ? `<form data-payform="${l.id}" style="margin-top:8px"><div class="row">
-          <label>Amount (₱)<input name="amount" type="number" step="0.01" min="0.01" value="${s.left.toFixed(2)}" required></label>
+          <label>Amount (₱)<input name="amount" type="number" step="0.01" min="0.01" value="${s.suggest.toFixed(2)}" required></label>
           <label>${lent ? 'Received into' : 'Paid from'}<select name="wallet">${cashOptions(l.walletId)}</select></label>
           <label>Date<input name="date" type="date" value="${today()}" required></label>
           <div class="flex" style="align-self:end"><button class="btn primary">Save payment</button><button type="button" class="btn" data-lact="pay-cancel" data-id="${l.id}">Cancel</button></div>
@@ -1064,9 +1157,11 @@
         <div style="flex:1;min-width:220px">
           <strong>${lent ? `${esc(l.person)} owes you` : `You owe ${esc(l.person)}`}</strong>
           <span class="${lent ? 'pos' : 'neg'}">${peso(s.left)}</span>
-          <div class="tag">${peso(s.repaid)} of ${peso(s.total)} paid back · ${lent ? 'lent' : 'borrowed'} ${fmtDate(l.date)} · ${esc(walletName(l.walletId))}${s.total > l.principal ? ` · includes ${peso(s.total - l.principal)} interest` : ''}${l.note ? ' · ' + esc(l.note) : ''}</div>
+          <div class="tag">${peso(s.repaid)} of ${peso(s.total)} paid back · ${lent ? 'lent' : 'borrowed'} ${fmtDate(l.date)} · ${esc(walletName(l.walletId))}${plan}${s.total > l.principal ? ` · includes ${peso(s.total - l.principal)} interest` : ''}${l.note ? ' · ' + esc(l.note) : ''}</div>
           <div class="bar-track" style="max-width:260px"><div class="bar-fill" style="width:${s.total ? Math.min(100, s.repaid / s.total * 100) : 0}%"></div></div>
           <div class="small">${due}</div>
+          ${l.freq ? `<button class="link" data-lact="schedule" data-id="${l.id}" style="padding-left:0">${openSchedules.has(l.id) ? 'Hide' : 'Show'} schedule</button>` : ''}
+          ${schedule}
           ${payForm}
         </div>
         <span>${s.paid ? '' : `<button class="link" data-lact="pay" data-id="${l.id}">Record payment</button>`}<button class="link" data-lact="edit" data-id="${l.id}">Edit</button><button class="link danger" data-lact="del" data-id="${l.id}">Delete</button></span>
@@ -1077,8 +1172,9 @@
       + (paid.length ? `<button class="link" data-lact="toggle-paid" style="padding-left:0;margin-top:8px">${showPaidLoans ? 'Hide' : 'Show'} paid-back loans (${paid.length})</button>`
         + (showPaidLoans ? paid.map(row).join('') : '') : '');
     loanAlerts = open.filter(([, s]) => s.days <= 7).map(([l, s]) => {
-      const when = s.days < 0 ? `was due ${fmtDate(l.due)} (overdue)` : `due ${whenText(s.days)} (${fmtDate(l.due)})`;
-      return `<div>${l.dir === 'lent' ? `<strong>${esc(l.person)}</strong> should pay you ${peso(s.left)}` : `Pay <strong>${esc(l.person)}</strong> ${peso(s.left)}`} — ${when}
+      const date = s.firstOverdue || s.next.date, amt = s.behind ? s.overdueAmt : s.next.owed;
+      const when = s.behind ? `was due ${fmtDate(date)} (overdue)` : `due ${whenText(s.days)} (${fmtDate(date)})`;
+      return `<div>${l.dir === 'lent' ? `<strong>${esc(l.person)}</strong> should pay you ${peso(amt)}` : `Pay <strong>${esc(l.person)}</strong> ${peso(amt)}`} — ${when}
         <button class="link" data-loanpay="${l.id}">Record payment</button></div>`;
     });
     renderAlerts();
