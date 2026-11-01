@@ -16,6 +16,13 @@
 <style>
   /* Palette: olive #4b4d26 · sage #80916d · tan #cbb397 · clay #9b6a5b · brown #613a2b */
   :root {
+    /* shape, spacing and type; overridden by Personalize */
+    --r-lg: 14px; --r-md: 12px; --r-sm: 8px;
+    --shadow: none; --border-w: 1px;
+    --pad: 16px; --pad-m: 14px; --gap: 12px;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  :root {
     color-scheme: light;
     --page: #f4ede3;
     --surface: #fbf7f1;
@@ -78,7 +85,7 @@
     margin: 0;
     background: var(--page);
     color: var(--text);
-    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 15px/1.45 var(--font);
   }
   #bg, #bg-dim { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
   #bg { background-size: cover; background-position: center; }
@@ -107,11 +114,11 @@
   nav button { border: 0; background: transparent; color: var(--text-2); padding: 6px 12px; border-radius: 7px; cursor: pointer; font: inherit; }
   nav button.active { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
-  .grid { display: grid; gap: 12px; }
+  .card { background: var(--surface); border: var(--border-w) solid var(--border); border-radius: var(--r-lg); padding: var(--pad); box-shadow: var(--shadow); }
+  .grid { display: grid; gap: var(--gap); }
   .cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-  .stack > * + * { margin-top: 12px; }
+  .stack > * + * { margin-top: var(--gap); }
 
   .stat .label { color: var(--text-2); font-size: 13px; }
   .stat .value { font-size: 24px; font-weight: 650; margin-top: 2px; }
@@ -121,7 +128,7 @@
   .small { font-size: 13px; }
 
   .wallets { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-  .wallet { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--surface); }
+  .wallet { border: var(--border-w) solid var(--border); border-radius: var(--r-md); padding: 12px; background: var(--surface); box-shadow: var(--shadow); }
   .wallet .name { font-weight: 600; }
   .wallet .bal { font-size: 20px; font-weight: 650; margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
 
@@ -129,7 +136,7 @@
   label { display: block; font-size: 13px; color: var(--text-2); }
   input, select, textarea {
     width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; color: var(--text);
-    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--page); border: 1px solid var(--border); border-radius: var(--r-sm);
   }
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   input[type="color"] { padding: 2px; height: 40px; width: 56px; cursor: pointer; }
@@ -137,7 +144,7 @@
   .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); margin-top: 10px; cursor: pointer; }
   .check input { width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--accent); }
   button.btn {
-    font: inherit; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    font: inherit; padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer;
     border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
   }
   button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -180,6 +187,51 @@
   .alert div + div { margin-top: 4px; }
 
   nav .short { display: none; }
+
+  /* Personalize panel */
+  .pz { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+  .pz-preview { position: sticky; top: 12px; }
+  .pz-frame { position: relative; height: 300px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: var(--page); isolation: isolate; }
+  .pz-bg, .pz-dim { position: absolute; inset: -12px; z-index: -1; }
+  .pz-bg { background-size: cover; background-position: center; }
+  .pz-dim { background: var(--page); opacity: 0; }
+  .pz-content { display: grid; gap: var(--gap); padding: 14px; }
+  .pz-content .card { background: color-mix(in srgb, var(--surface) var(--island-opacity, 100%), transparent) !important; }
+  .pz-content .stat .value { font-size: 20px; }
+  .pz-bars { display: flex; align-items: flex-end; gap: 4px; height: 56px; margin: 10px 0; }
+  .pz-bars span { flex: 1; border-radius: 3px 3px 0 0; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none; }
+  .chips button { flex: none; border: 1px solid var(--border); background: transparent; color: var(--text-2); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  .chips button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .opt { padding: 12px 0; border-top: 1px solid var(--grid); }
+  .opt:first-child { border-top: 0; padding-top: 0; }
+  .opt h3 { margin-bottom: 8px; }
+  .hint { font-size: 12px; color: var(--muted); margin: -4px 0 8px; }
+  .pz .seg { margin-bottom: 0; flex-wrap: wrap; }
+  .pz .seg button.active, .choice.active { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+  .choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .choice { display: grid; justify-items: center; gap: 4px; min-width: 76px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  .choice .aa { font-size: 22px; line-height: 1; }
+  .choice .pair { display: flex; gap: 3px; }
+  .choice .pair i { width: 16px; height: 22px; border-radius: 3px; }
+  label.inline { display: flex; align-items: center; gap: 8px; }
+  label.inline input { margin: 0; }
+  .sec-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--grid); }
+  .sec-row:last-child { border-bottom: 0; }
+  .sec-row .name { flex: 1; }
+  .sec-row button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: var(--r-sm); width: 34px; height: 34px; cursor: pointer; font: inherit; }
+  .sec-row button:disabled { opacity: 0.35; cursor: default; }
+  .sec-row.off .name { color: var(--muted); text-decoration: line-through; }
+
+  /* Overview sections can be reordered / hidden */
+  #tab-overview.active { display: flex; flex-direction: column; gap: var(--gap); }
+  #tab-overview > * { margin-top: 0 !important; }
+  .sec-off { display: none !important; }
+
+  /* hide amounts */
+  body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-big, .kv span:last-child, .plan-tile .amt,
+    #loan-summary, #cc-summary, #recur-summary, #t-summary, .recur-row .pos, .recur-row .neg):not(.pz *) { filter: blur(7px); }
+  .eye { border: 0; background: none; font-size: 18px; cursor: pointer; padding: 4px 6px; color: var(--text-2); }
   .plan-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
   .plan-tile { text-align: left; border: 1px solid var(--border); background: var(--surface-2); border-radius: 12px; padding: 12px; cursor: pointer; font: inherit; color: var(--text); }
   .plan-tile.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
@@ -249,8 +301,12 @@
     .seg button { flex: 1; padding: 8px 6px; }
     form .row, .plan-meta { grid-template-columns: 1fr 1fr; }
 
-    .card { padding: 14px; }
-    .grid.cols-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .card { padding: var(--pad-m); }
+    .grid.cols-4 { grid-template-columns: 1fr 1fr; gap: calc(var(--gap) * 0.67); }
+    .pz { grid-template-columns: 1fr; }
+    .pz-preview { position: static; }
+    .pz-frame { height: 200px; }
+    .pz-content { grid-template-columns: 1fr 1fr; align-content: center; }
     .grid.cols-2 { grid-template-columns: 1fr; }
     .stat .value { font-size: 19px; }
     .stat .label { font-size: 12px; }
@@ -284,7 +340,7 @@
 </head>
 <body>
 <div id="bg"></div><div id="bg-dim"></div>
-<style id="island-style"></style>
+<style id="pref-style"></style>
 
 <!-- PROFILE PICKER / LOCK -->
 <div id="gate" hidden>
@@ -310,6 +366,7 @@
     <div class="brand">
       <button class="avatar" id="chip" title="Switch profile"></button>
       <div><h1>Wallet Tracker</h1><div id="sync-badge" class="muted small"></div></div>
+      <button class="eye" id="eye" title="Show / hide amounts">👁</button>
     </div>
     <nav id="nav">
       <button data-tab="overview" class="active">Overview</button>
@@ -323,19 +380,19 @@
   <!-- OVERVIEW -->
   <section id="tab-overview" class="tab active stack">
     <div id="cc-alert" class="card alert" hidden></div>
-    <div class="grid cols-4">
+    <div class="grid cols-4" data-sec="stats">
       <div class="card stat"><div class="label">Total balance</div><div class="value" id="st-total">—</div><div class="small muted" id="st-total-sub"></div></div>
       <div class="card stat"><div class="label">Revenue this month</div><div class="value" id="st-income">—</div></div>
       <div class="card stat"><div class="label">Expenses this month</div><div class="value" id="st-expense">—</div></div>
       <div class="card stat"><div class="label">Net this month</div><div class="value" id="st-net">—</div></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-sec="wallets">
       <div class="flex between"><h2>Wallets</h2><span class="muted small">Click “Update balance” to match what your app shows</span></div>
       <div class="wallets" id="wallet-list"></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-sec="cards">
       <div class="flex between"><h2>Credit cards</h2><span class="muted small" id="cc-summary"></span></div>
       <div class="wallets" id="cc-list"></div>
       <div id="inst-wrap" hidden style="margin-top:16px">
@@ -344,7 +401,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-sec="loans">
       <div class="flex between" style="margin-bottom:8px">
         <h2 style="margin:0">Loans</h2>
         <span class="flex"><span class="muted small" id="loan-summary"></span><button class="btn" id="loan-new-btn">+ New loan</button></span>
@@ -385,7 +442,7 @@
       <div id="loan-list"></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-sec="entry">
       <h2 id="form-title">Add entry</h2>
       <div class="seg" id="type-seg">
         <button data-type="expense" class="active">Expense</button>
@@ -420,12 +477,12 @@
       </form>
     </div>
 
-    <div class="card">
+    <div class="card" data-sec="monthly">
       <div class="flex between"><h2>Monthly</h2><span class="muted small" id="recur-summary"></span></div>
       <div id="recur-list"></div>
     </div>
 
-    <div class="grid cols-2">
+    <div class="grid cols-2" data-sec="charts">
       <div class="card">
         <h2>Revenue vs expenses — last 6 months</h2>
         <div class="chart-box"><canvas id="ch-monthly"></canvas></div>
@@ -534,41 +591,108 @@
       <p class="note-box" style="margin-bottom:0">Each profile has its own wallets, entries, goals, look and sync. The PIN stops others from opening your profile in the app on a shared phone; it doesn’t encrypt the data.</p>
     </div>
 
-    <div class="card">
-      <h2>Personalize</h2>
-      <div class="setting">
-        <h3>Theme</h3>
-        <select id="theme" style="width:auto">
-          <option value="">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
-        </select>
+    <div class="card" id="personalize">
+      <div class="flex between">
+        <h2 style="margin:0">Personalize</h2>
+        <button class="link danger" id="pz-reset">Reset all</button>
       </div>
-      <div class="setting">
-        <h3>Accent color</h3>
-        <div class="swatches" id="accent-swatches"></div>
-      </div>
-      <div class="setting">
-        <h3>Background</h3>
-        <div class="swatches" id="bg-presets"></div>
-        <div class="flex" style="margin-top:12px">
-          <label style="display:flex;align-items:center;gap:8px">Solid color <input id="bg-color" type="color" value="#f4ede3" style="margin:0"></label>
-          <button class="btn" id="bg-upload-btn">Upload photo</button>
-          <input id="bg-upload" type="file" accept="image/*" hidden>
-          <button class="btn" id="bg-reset">Reset</button>
+      <p class="small muted" style="margin:4px 0 14px">Saved to <strong id="pz-profile"></strong> and synced to your other devices.</p>
+      <div class="pz">
+        <div class="pz-preview">
+          <div class="pz-frame">
+            <div class="pz-bg" id="pz-bg"></div><div class="pz-dim" id="pz-dim"></div>
+            <div class="pz-content">
+              <div class="card stat"><div class="label">Total balance</div><div class="value">₱24,580.00</div></div>
+              <div class="card">
+                <div class="flex between small"><strong>This month</strong><span class="pos">+₱3,800</span></div>
+                <div class="pz-bars">
+                  <span style="height:70%;background:var(--series-1)"></span><span style="height:45%;background:var(--series-2)"></span>
+                  <span style="height:85%;background:var(--series-1)"></span><span style="height:55%;background:var(--series-2)"></span>
+                  <span style="height:60%;background:var(--series-1)"></span><span style="height:35%;background:var(--series-2)"></span>
+                </div>
+                <button class="btn primary" type="button" style="width:100%">Add entry</button>
+              </div>
+            </div>
+          </div>
+          <div class="tag" style="text-align:center;margin-top:6px">Live preview</div>
         </div>
-        <div class="flex" style="margin-top:8px">
-          <input id="bg-url" type="url" placeholder="…or paste an image link" style="flex:1;min-width:200px;margin:0">
-          <button class="btn" id="bg-url-use">Use link</button>
+
+        <div class="pz-main">
+          <div class="chips" id="pz-tabs">
+            <button data-pane="colors" class="active">Colors</button>
+            <button data-pane="background">Background</button>
+            <button data-pane="cards">Cards</button>
+            <button data-pane="text">Text &amp; layout</button>
+            <button data-pane="overview">Overview</button>
+          </div>
+
+          <div class="pz-pane" data-pane="colors">
+            <div class="opt"><h3>Theme</h3>
+              <div class="seg" data-group="theme">
+                <button data-pref="theme" data-val="">Match system</button><button data-pref="theme" data-val="light">Light</button><button data-pref="theme" data-val="dark">Dark</button>
+              </div></div>
+            <div class="opt"><h3>Accent</h3><p class="hint">Buttons, links, highlights.</p>
+              <div class="swatches" id="accent-swatches"></div></div>
+            <div class="opt"><h3>Chart colors</h3><p class="hint">Revenue vs expenses. Both sets stay easy to tell apart for color-blind eyes.</p>
+              <div class="choice-row">
+                <button class="choice" data-pref="chart" data-val="earthy"><span class="pair"><i style="background:#80916d"></i><i style="background:#613a2b"></i></span>Earthy</button>
+                <button class="choice" data-pref="chart" data-val="bold"><span class="pair"><i style="background:#2a78d6"></i><i style="background:#eb6834"></i></span>Bold</button>
+              </div></div>
+          </div>
+
+          <div class="pz-pane" data-pane="background" hidden>
+            <div class="opt"><h3>Presets</h3><div class="swatches" id="bg-presets"></div></div>
+            <div class="opt"><h3>Your own</h3>
+              <div class="flex">
+                <label class="inline">Solid color <input id="bg-color" type="color" value="#f4ede3"></label>
+                <button class="btn" id="bg-upload-btn">Upload photo</button>
+                <input id="bg-upload" type="file" accept="image/*" hidden>
+              </div>
+              <div class="flex" style="margin-top:8px">
+                <input id="bg-url" type="url" placeholder="…or paste an image link" style="flex:1;min-width:180px;margin:0">
+                <button class="btn" id="bg-url-use">Use link</button>
+              </div></div>
+            <div class="opt" id="bg-adjust">
+              <label>Soften <span class="tag" id="bg-dim-val"></span><input data-range="dim" type="range" min="0" max="85" step="5"></label>
+              <label style="margin-top:8px">Blur photo <span class="tag" id="bg-blur-val"></span><input data-range="blur" type="range" min="0" max="20" step="2"></label>
+            </div>
+          </div>
+
+          <div class="pz-pane" data-pane="cards" hidden>
+            <div class="opt"><h3>Color</h3><div class="swatches" id="island-swatches"></div></div>
+            <div class="opt"><label>Opacity <span class="tag" id="card-op-val"></span><input data-range="cardOpacity" type="range" min="40" max="100" step="5"></label></div>
+            <div class="opt"><h3>Corners</h3>
+              <div class="seg"><button data-pref="radius" data-val="sharp">Sharp</button><button data-pref="radius" data-val="rounded">Rounded</button><button data-pref="radius" data-val="round">Extra round</button></div></div>
+            <div class="opt"><h3>Shadow</h3>
+              <div class="seg"><button data-pref="shadow" data-val="none">None</button><button data-pref="shadow" data-val="soft">Soft</button><button data-pref="shadow" data-val="strong">Lifted</button></div></div>
+            <div class="opt"><label class="check"><input type="checkbox" data-check="border"> Show card outlines</label></div>
+          </div>
+
+          <div class="pz-pane" data-pane="text" hidden>
+            <div class="opt"><h3>Font</h3>
+              <div class="choice-row">
+                <button class="choice" data-pref="font" data-val="system"><span class="aa" style="font-family:system-ui,sans-serif">Aa</span>Clean</button>
+                <button class="choice" data-pref="font" data-val="rounded"><span class="aa" style="font-family:Nunito,ui-rounded,sans-serif">Aa</span>Rounded</button>
+                <button class="choice" data-pref="font" data-val="serif"><span class="aa" style="font-family:Lora,Georgia,serif">Aa</span>Serif</button>
+                <button class="choice" data-pref="font" data-val="mono"><span class="aa" style="font-family:'JetBrains Mono',ui-monospace,monospace">Aa</span>Mono</button>
+              </div></div>
+            <div class="opt"><h3>Size</h3>
+              <div class="seg"><button data-pref="size" data-val="0.9" data-num>Small</button><button data-pref="size" data-val="1" data-num>Normal</button><button data-pref="size" data-val="1.1" data-num>Large</button><button data-pref="size" data-val="1.2" data-num>Extra large</button></div></div>
+            <div class="opt"><h3>Spacing</h3>
+              <div class="seg"><button data-pref="density" data-val="compact">Compact</button><button data-pref="density" data-val="comfortable">Comfortable</button><button data-pref="density" data-val="spacious">Spacious</button></div></div>
+            <div class="opt"><h3>Open the app on</h3>
+              <select data-select="startTab" style="width:auto">
+                <option value="overview">Overview</option><option value="transactions">Transactions</option><option value="plan">Plan</option><option value="savings">Savings</option>
+              </select></div>
+            <div class="opt"><label class="check"><input type="checkbox" data-check="privacy"> Hide amounts when the app opens</label>
+              <p class="hint">Tap 👁 at the top to show or hide them anytime.</p></div>
+          </div>
+
+          <div class="pz-pane" data-pane="overview" hidden>
+            <p class="hint" style="margin-top:0">Choose which sections appear on the Overview and in what order.</p>
+            <div id="sec-list"></div>
+          </div>
         </div>
-        <label style="margin-top:12px" id="bg-dim-wrap">Soften background <span id="bg-dim-val"></span>
-          <input id="bg-dim" type="range" min="0" max="85" step="5">
-        </label>
-      </div>
-      <div class="setting">
-        <h3>Cards &amp; panels</h3>
-        <div class="swatches" id="island-swatches"></div>
-        <label style="margin-top:12px">Opacity <span id="island-op-val"></span>
-          <input id="island-op" type="range" min="40" max="100" step="5">
-        </label>
       </div>
     </div>
 
@@ -664,7 +788,7 @@
 
 <script>
 (() => {
-  const APP_VERSION = 'v11';   // keep in step with VERSION in sw.js
+  const APP_VERSION = 'v12';   // keep in step with VERSION in sw.js
   const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
   const CATS = {
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
@@ -672,14 +796,20 @@
   };
   const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans', 'loans'];
   const PALETTE = ['#4b4d26', '#80916d', '#9b6a5b', '#613a2b', '#cbb397'];
-  const ISLAND_COLORS = ['#fbf7f1', '#ffffff', '#e9dfd0', '#dfe4d4', '#cbb397', '#80916d', '#9b6a5b', '#4b4d26', '#613a2b', '#221f18'];
+  const ISLAND_COLORS = ['#fbf7f1', '#ffffff', '#e9dfd0', '#dfe4d4', '#f3e3d3', '#cbb397', '#80916d', '#9b6a5b', '#4b4d26', '#613a2b', '#2e2a21', '#221f18'];
+  const ACCENTS = [...PALETTE, '#6b7f4f', '#b5835a', '#8c5b6b', '#4f6d7a', '#c4704f', '#2f3018'];
   const BG_PRESETS = [
     { name: 'Plain', css: '' },
     { name: 'Linen', css: 'linear-gradient(160deg, #f4ede3 0%, #e6d6c1 100%)' },
+    { name: 'Sunrise', css: 'linear-gradient(160deg, #fbf7f1 0%, #e9cfae 55%, #c89c8a 100%)' },
     { name: 'Sage mist', css: 'linear-gradient(160deg, #dfe4d4 0%, #b9c4a8 55%, #80916d 100%)' },
+    { name: 'Meadow', css: 'radial-gradient(circle at 20% 15%, #f4ede3 0%, #dfe4d4 45%, #a3b38f 100%)' },
     { name: 'Clay dusk', css: 'linear-gradient(160deg, #e8d3c3 0%, #c89c8a 50%, #9b6a5b 100%)' },
+    { name: 'Rose clay', css: 'radial-gradient(circle at 80% 10%, #f3e3d3 0%, #d9b3a5 50%, #8c5b6b 100%)' },
+    { name: 'Lake', css: 'linear-gradient(160deg, #e3e8e4 0%, #a9bcbf 55%, #4f6d7a 100%)' },
     { name: 'Forest', css: 'linear-gradient(160deg, #80916d 0%, #4b4d26 60%, #2f3018 100%)' },
     { name: 'Cocoa', css: 'linear-gradient(160deg, #9b6a5b 0%, #613a2b 60%, #3a2219 100%)' },
+    { name: 'Night', css: 'linear-gradient(160deg, #2e2a21 0%, #1d1a14 60%, #121009 100%)' },
   ];
 
   // ---------- helpers ----------
@@ -800,9 +930,9 @@
   // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
   // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {} };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {}, prefs: {} };
   }
-  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {}, ...s });
+  const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {}, prefs: {}, ...s });
   function load() {
     const s = ls.json(KEY);
     return s ? normalize(s) : freshState();
@@ -1873,84 +2003,197 @@
   });
 
   // ---------- personalize ----------
-  const PREFS_KEY = KEY + '.prefs';
-  let prefs = ls.json(PREFS_KEY) || { theme: ls.get(KEY + '.theme') || '' };
+  // Saved in the profile's data (state.prefs), so the look syncs with the rest of the profile.
+  const DEFAULT_PREFS = { theme: '', accent: '', chart: 'earthy', bg: '', bgColor: '', dim: 20, blur: 0, card: '', cardOpacity: 100,
+    radius: 'rounded', shadow: 'none', border: true, font: 'system', size: 1, density: 'comfortable', startTab: 'overview',
+    privacy: false, sections: null };
+  const SECTIONS = [['stats', 'Balance summary'], ['wallets', 'Wallets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
+    ['entry', 'Add entry'], ['monthly', 'Monthly'], ['charts', 'Charts']];
+  // revenue / expense colors: on the page in light and dark mode, and inside light or dark custom cards
+  const CHART_PAIRS = {
+    earthy: { light: ['#80916d', '#613a2b'], dark: ['#80916d', '#cbb397'], onLight: ['#4b4d26', '#9b6a5b'], onDark: ['#80916d', '#cbb397'] },
+    bold: { light: ['#2a78d6', '#eb6834'], dark: ['#3987e5', '#d95926'], onLight: ['#2a78d6', '#eb6834'], onDark: ['#3987e5', '#d95926'] },
+  };
+  const RADII = { sharp: [4, 4, 4], rounded: [14, 12, 8], round: [24, 18, 12] };
+  const SHADOWS = { none: 'none', soft: '0 1px 3px rgba(43,33,22,0.08), 0 4px 14px rgba(43,33,22,0.06)',
+    strong: '0 2px 6px rgba(43,33,22,0.12), 0 12px 32px rgba(43,33,22,0.16)' };
+  const DENSITY = { compact: [12, 10, 8], comfortable: [16, 14, 12], spacious: [22, 18, 18] };
+  const FONTS = {
+    system: ['system-ui, -apple-system, "Segoe UI", sans-serif'],
+    rounded: ['Nunito, ui-rounded, "SF Pro Rounded", system-ui, sans-serif', 'Nunito:wght@400;600;700'],
+    serif: ['Lora, ui-serif, Georgia, serif', 'Lora:wght@400;600;700'],
+    mono: ['"JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace', 'JetBrains+Mono:wght@400;600;700'],
+  };
+  // first run after looks became synced: bring over this device's old settings (u: 0 lets synced ones win)
+  if (!state.prefs || !Object.keys(state.prefs).length) {
+    state.prefs = { ...(ls.json(KEY + '.prefs') || { theme: ls.get(KEY + '.theme') || '' }), u: 0 };
+    persist();
+  }
+  let prefs = state.prefs;
+  const pref = k => prefs[k] ?? DEFAULT_PREFS[k];
+  let privacyOverride = null;   // the 👁 button, for this session only
+
   function savePrefs() {
-    if (!ls.set(PREFS_KEY, JSON.stringify(prefs))) alert('Couldn’t save that. The photo may be too large for this browser’s storage; try a smaller one.');
+    prefs.u = now();
+    state.prefs = prefs;
+    if (!ls.set(KEY, JSON.stringify(state))) alert('Couldn’t save that. The photo may be too large for this browser’s storage; try a smaller one.');
+    scheduleSync();
     applyPrefs(); renderPrefs(); renderCharts();
   }
+
   function applyPrefs() {
-    const root = document.documentElement;
-    if (prefs.theme) root.dataset.theme = prefs.theme; else delete root.dataset.theme;
-    if (prefs.accent) {
-      root.style.setProperty('--accent', prefs.accent);
-      root.style.setProperty('--on-accent', isLight(prefs.accent) ? '#2b2116' : '#fbf7f1');
+    const root = document.documentElement, body = document.body;
+    if (pref('theme')) root.dataset.theme = pref('theme'); else delete root.dataset.theme;
+    const accent = pref('accent');
+    if (accent) {
+      root.style.setProperty('--accent', accent);
+      root.style.setProperty('--on-accent', isLight(accent) ? '#2b2116' : '#fbf7f1');
     } else { root.style.removeProperty('--accent'); root.style.removeProperty('--on-accent'); }
-    if (prefs.bgColor) root.style.setProperty('--page', prefs.bgColor); else root.style.removeProperty('--page');
-    $('bg').style.backgroundImage = prefs.bg || '';
-    document.body.classList.toggle('has-bg', !!prefs.bg);
-    $('bg-dim').style.opacity = prefs.bg ? (prefs.dim ?? 20) / 100 : 0;
-    $('island-style').textContent = prefs.card ? islandCss(prefs.card) : '';
-    if (prefs.cardOpacity) document.body.style.setProperty('--island-opacity', prefs.cardOpacity + '%');
-    else document.body.style.removeProperty('--island-opacity');
-    document.body.classList.toggle('translucent', (prefs.cardOpacity ?? 100) < 100);
+    if (pref('bgColor')) root.style.setProperty('--page', pref('bgColor')); else root.style.removeProperty('--page');
+
+    const bg = pref('bg'), blur = bg ? pref('blur') : 0;
+    for (const [layer, dim] of [[$('bg'), $('bg-dim')], [$('pz-bg'), $('pz-dim')]]) {
+      layer.style.backgroundImage = bg || '';
+      layer.style.filter = blur ? `blur(${blur}px)` : '';
+      dim.style.opacity = bg ? pref('dim') / 100 : 0;
+    }
+    $('bg').style.inset = blur ? `-${blur * 2}px` : '';   // keep blurred edges off-screen
+    body.classList.toggle('has-bg', !!bg);
+
+    // shape, spacing, type, chart colors and card color go into one generated stylesheet
+    const [rl, rm, rs] = RADII[pref('radius')] || RADII.rounded;
+    const [pd, pm, gp] = DENSITY[pref('density')] || DENSITY.comfortable;
+    const font = FONTS[pref('font')] || FONTS.system;
+    const pair = CHART_PAIRS[pref('chart')] || CHART_PAIRS.earthy;
+    const darkSeries = `--series-1: ${pair.dark[0]}; --series-2: ${pair.dark[1]};`;
+    $('pref-style').textContent = `
+      :root { --r-lg: ${rl}px; --r-md: ${rm}px; --r-sm: ${rs}px; --shadow: ${SHADOWS[pref('shadow')] || 'none'};
+        --border-w: ${pref('border') ? 1 : 0}px; --pad: ${pd}px; --pad-m: ${pm}px; --gap: ${gp}px; --font: ${font[0]};
+        --series-1: ${pair.light[0]}; --series-2: ${pair.light[1]}; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${darkSeries} } }
+      :root[data-theme="dark"] { ${darkSeries} }
+      ${pref('card') ? islandCss(pref('card'), pair) : ''}`;
+    if (font[1] && !document.querySelector(`link[data-font="${pref('font')}"]`)) {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet'; l.dataset.font = pref('font');
+      l.href = `https://fonts.googleapis.com/css2?family=${font[1]}&display=swap`;
+      document.head.appendChild(l);
+    }
+    $('app').style.zoom = pref('size') === 1 ? '' : pref('size');
+    const op = pref('cardOpacity');
+    if (op < 100) body.style.setProperty('--island-opacity', op + '%'); else body.style.removeProperty('--island-opacity');
+    body.classList.toggle('translucent', op < 100);
+    body.classList.toggle('privacy', privacyOverride ?? !!pref('privacy'));
+    applySections();
   }
+
   // Re-scope the color tokens inside cards so text, inputs and charts stay readable on the chosen color.
-  function islandCss(c) {
+  function islandCss(c, pair) {
+    const [s1, s2] = isLight(c) ? pair.onLight : pair.onDark;
     const t = isLight(c)
       ? `color-scheme: light; --text: #2b2116; --text-2: #5f4e3f; --muted: #75654f; --border: rgba(97,58,43,0.16);
          --surface-2: color-mix(in srgb, ${c} 88%, #613a2b); --page: color-mix(in srgb, ${c} 93%, #613a2b);
          --grid: color-mix(in srgb, ${c} 84%, #613a2b); --axis: color-mix(in srgb, ${c} 65%, #613a2b);
-         --series-1: #4b4d26; --series-2: #9b6a5b; --good: #4b4d26; --bad: #8a5545;`
+         --good: #4b4d26; --bad: #8a5545;`
       : `color-scheme: dark; --text: #f1e9dd; --text-2: #e3d2bc; --muted: #b8a993; --border: rgba(255,255,255,0.14);
          --surface-2: color-mix(in srgb, ${c} 85%, #ffffff); --page: color-mix(in srgb, ${c} 78%, #000000);
          --grid: color-mix(in srgb, ${c} 82%, #ffffff); --axis: color-mix(in srgb, ${c} 65%, #ffffff);
-         --series-1: #80916d; --series-2: #cbb397; --good: #c3d1ae; --bad: #f0b8a6;`;
-    return `.card, .wallet, nav, .profile-tile { --surface: ${c}; ${t} }`;
+         --good: #c3d1ae; --bad: #f0b8a6;`;
+    return `.card, .wallet, nav, .profile-tile { --surface: ${c}; ${t} --series-1: ${s1}; --series-2: ${s2}; }`;
   }
+
+  function sectionPrefs() {
+    const s = pref('sections') || {}, known = SECTIONS.map(([k]) => k);
+    const order = [...(s.order || []).filter(k => known.includes(k)), ...known.filter(k => !(s.order || []).includes(k))];
+    return { order, hidden: (s.hidden || []).filter(k => known.includes(k)) };
+  }
+  function applySections() {
+    const { order, hidden } = sectionPrefs();
+    order.forEach((id, i) => {
+      const el = document.querySelector(`#tab-overview [data-sec="${id}"]`);
+      if (el) { el.style.order = i + 1; el.classList.toggle('sec-off', hidden.includes(id)); }
+    });
+  }
+
   function renderPrefs() {
-    $('theme').value = prefs.theme || '';
-    $('accent-swatches').innerHTML = [['', 'Default'], ...PALETTE.map(c => [c, c])].map(([c, label]) =>
-      `<button class="swatch ${(prefs.accent || '') === c ? 'active' : ''}" data-accent="${c}" title="${label}"
-        style="background:${c || 'linear-gradient(135deg,#4b4d26 50%,#80916d 50%)'}"></button>`).join('') +
-      `<label title="Custom color" style="display:flex"><input type="color" id="accent-custom" value="${prefs.accent || '#4b4d26'}" style="margin:0;width:44px"></label>`;
+    $('pz-profile').textContent = profile.name;
+    document.querySelectorAll('#personalize [data-pref]').forEach(b => {
+      const v = b.hasAttribute('data-num') ? Number(b.dataset.val) : b.dataset.val;
+      b.classList.toggle('active', pref(b.dataset.pref) === v);
+    });
+    document.querySelectorAll('#personalize [data-check]').forEach(c => { c.checked = !!pref(c.dataset.check); });
+    document.querySelectorAll('#personalize [data-select]').forEach(s => { s.value = pref(s.dataset.select); });
+    document.querySelectorAll('#personalize [data-range]').forEach(r => { r.value = pref(r.dataset.range); });
+    $('bg-dim-val').textContent = pref('dim') + '%';
+    $('bg-blur-val').textContent = pref('blur') ? pref('blur') + 'px' : 'off';
+    $('card-op-val').textContent = pref('cardOpacity') + '%';
+    $('bg-adjust').hidden = !pref('bg');
+    const swatch = (attr, value, current, fill, title) =>
+      `<button class="swatch ${current === value ? 'active' : ''}" data-${attr}="${value}" title="${title}" style="background:${fill}"></button>`;
+    $('accent-swatches').innerHTML = swatch('accent', '', pref('accent'), 'linear-gradient(135deg,#4b4d26 50%,#80916d 50%)', 'Default')
+      + ACCENTS.map(c => swatch('accent', c, pref('accent'), c, c)).join('')
+      + `<label title="Custom color" style="display:flex"><input type="color" id="accent-custom" value="${pref('accent') || '#4b4d26'}" style="margin:0;width:44px"></label>`;
     $('bg-presets').innerHTML = BG_PRESETS.map((p, i) =>
-      `<button class="preset ${(prefs.bg || '') === p.css ? 'active' : ''}" data-preset="${i}" title="${p.name}"
-        style="background:${p.css || 'var(--page)'}"></button>`).join('');
-    $('bg-color').value = prefs.bgColor || '#f4ede3';
-    $('bg-dim').value = prefs.dim ?? 20;
-    $('bg-dim-val').textContent = `(${prefs.dim ?? 20}%)`;
-    $('bg-dim-wrap').hidden = !prefs.bg;
-    $('island-swatches').innerHTML = [['', 'Default'], ...ISLAND_COLORS.map(c => [c, c])].map(([c, label]) =>
-      `<button class="swatch ${(prefs.card || '') === c ? 'active' : ''}" data-card="${c}" title="${label}"
-        style="background:${c || 'linear-gradient(135deg,#fbf7f1 50%,#221f18 50%)'}"></button>`).join('') +
-      `<label title="Custom color" style="display:flex"><input type="color" id="island-custom" value="${prefs.card || '#fbf7f1'}" style="margin:0;width:44px"></label>`;
-    $('island-op').value = prefs.cardOpacity ?? 100;
-    $('island-op-val').textContent = `(${prefs.cardOpacity ?? 100}%)`;
+      `<button class="preset ${pref('bg') === p.css ? 'active' : ''}" data-preset="${i}" title="${p.name}" style="background:${p.css || 'var(--page)'}"></button>`).join('');
+    $('bg-color').value = pref('bgColor') || '#f4ede3';
+    $('island-swatches').innerHTML = swatch('card', '', pref('card'), 'linear-gradient(135deg,#fbf7f1 50%,#221f18 50%)', 'Default')
+      + ISLAND_COLORS.map(c => swatch('card', c, pref('card'), c, c)).join('')
+      + `<label title="Custom color" style="display:flex"><input type="color" id="island-custom" value="${pref('card') || '#fbf7f1'}" style="margin:0;width:44px"></label>`;
+    const { order, hidden } = sectionPrefs();
+    $('sec-list').innerHTML = order.map((id, i) => {
+      const off = hidden.includes(id);
+      return `<div class="sec-row ${off ? 'off' : ''}">
+        <label class="check" style="margin:0" title="Show on Overview"><input type="checkbox" data-sec-toggle="${id}" ${off ? '' : 'checked'}></label>
+        <span class="name">${SECTIONS.find(([k]) => k === id)[1]}</span>
+        <button data-sec-move="${id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+        <button data-sec-move="${id}" data-dir="1" ${i === order.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+      </div>`;
+    }).join('');
   }
-  $('theme').addEventListener('input', e => { prefs.theme = e.target.value; savePrefs(); });
-  $('accent-swatches').addEventListener('click', e => {
-    if (e.target.dataset.accent === undefined) return;
-    prefs.accent = e.target.dataset.accent; savePrefs();
+
+  $('pz-tabs').addEventListener('click', e => {
+    const pane = e.target.dataset.pane; if (!pane) return;
+    document.querySelectorAll('#pz-tabs button').forEach(b => b.classList.toggle('active', b.dataset.pane === pane));
+    document.querySelectorAll('.pz-pane').forEach(p => { p.hidden = p.dataset.pane !== pane; });
   });
-  $('accent-swatches').addEventListener('change', e => { if (e.target.id === 'accent-custom') { prefs.accent = e.target.value; savePrefs(); } });
-  $('bg-presets').addEventListener('click', e => {
-    const i = e.target.dataset.preset; if (i === undefined) return;
-    prefs.bg = BG_PRESETS[i].css; savePrefs();
+  $('personalize').addEventListener('click', e => {
+    const t = e.target, opt = t.closest('[data-pref]');
+    if (opt) { prefs[opt.dataset.pref] = opt.hasAttribute('data-num') ? Number(opt.dataset.val) : opt.dataset.val; savePrefs(); return; }
+    if (t.dataset.accent !== undefined) { prefs.accent = t.dataset.accent; savePrefs(); }
+    if (t.dataset.card !== undefined) { prefs.card = t.dataset.card; savePrefs(); }
+    if (t.dataset.preset !== undefined) { prefs.bg = BG_PRESETS[t.dataset.preset].css; savePrefs(); }
+    if (t.dataset.secMove) {
+      const { order, hidden } = sectionPrefs(), i = order.indexOf(t.dataset.secMove), j = i + Number(t.dataset.dir);
+      [order[i], order[j]] = [order[j], order[i]];
+      prefs.sections = { order, hidden }; savePrefs();
+    }
   });
-  $('island-swatches').addEventListener('click', e => {
-    if (e.target.dataset.card === undefined) return;
-    prefs.card = e.target.dataset.card; savePrefs();
+  $('personalize').addEventListener('input', e => {
+    const k = e.target.dataset.range; if (!k) return;
+    prefs[k] = Number(e.target.value);
+    applyPrefs();
+    $('bg-dim-val').textContent = pref('dim') + '%';
+    $('bg-blur-val').textContent = pref('blur') ? pref('blur') + 'px' : 'off';
+    $('card-op-val').textContent = pref('cardOpacity') + '%';
   });
-  $('island-swatches').addEventListener('change', e => { if (e.target.id === 'island-custom') { prefs.card = e.target.value; savePrefs(); } });
-  $('island-op').addEventListener('input', e => {
-    prefs.cardOpacity = Number(e.target.value); applyPrefs(); $('island-op-val').textContent = `(${prefs.cardOpacity}%)`;
+  $('personalize').addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.range) savePrefs();
+    else if (t.dataset.check) { prefs[t.dataset.check] = t.checked; if (t.dataset.check === 'privacy') privacyOverride = null; savePrefs(); }
+    else if (t.dataset.select) { prefs[t.dataset.select] = t.value; savePrefs(); }
+    else if (t.dataset.secToggle) {
+      const { order, hidden } = sectionPrefs(), id = t.dataset.secToggle;
+      prefs.sections = { order, hidden: t.checked ? hidden.filter(k => k !== id) : [...hidden, id] }; savePrefs();
+    }
+    else if (t.id === 'accent-custom') { prefs.accent = t.value; savePrefs(); }
+    else if (t.id === 'island-custom') { prefs.card = t.value; savePrefs(); }
+    else if (t.id === 'bg-color') { prefs.bgColor = t.value; prefs.bg = ''; savePrefs(); }
   });
-  $('island-op').addEventListener('change', savePrefs);
-  $('bg-color').addEventListener('change', e => { prefs.bgColor = e.target.value; prefs.bg = ''; savePrefs(); });
-  $('bg-reset').addEventListener('click', () => { delete prefs.bgColor; delete prefs.bg; delete prefs.dim; savePrefs(); });
-  $('bg-dim').addEventListener('input', e => { prefs.dim = Number(e.target.value); applyPrefs(); $('bg-dim-val').textContent = `(${prefs.dim}%)`; });
-  $('bg-dim').addEventListener('change', savePrefs);
+  $('pz-reset').addEventListener('click', () => {
+    if (!confirm(`Reset all of ${profile.name}’s customization to the defaults? This also applies on your other synced devices.`)) return;
+    prefs = {}; privacyOverride = null; savePrefs();
+  });
+  $('eye').addEventListener('click', () => { privacyOverride = !document.body.classList.contains('privacy'); applyPrefs(); });
   $('bg-url-use').addEventListener('click', () => {
     const url = $('bg-url').value.trim();
     if (!/^https?:\/\//i.test(url)) { alert('Paste a link that starts with http:// or https://'); return; }
@@ -1961,14 +2204,13 @@
     const file = e.target.files[0]; e.target.value = '';
     if (!file) return;
     try {
-      // shrink to at most 1600px so it fits in browser storage
+      // shrink so it fits in browser storage and syncs quickly
       const img = await createImageBitmap(file);
-      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
       const c = document.createElement('canvas');
       c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      prefs.bg = `url("${c.toDataURL('image/jpeg', 0.8)}")`;
-      if (prefs.dim === undefined) prefs.dim = 20;
+      prefs.bg = `url("${c.toDataURL('image/jpeg', 0.72)}")`;
       savePrefs();
     } catch { alert('Couldn’t read that image. Try a JPG or PNG.'); }
   });
@@ -1999,7 +2241,10 @@
       if (!confirm(`Replace all of ${profile.name}’s data with this backup?`)) return;
       // tombstone everything currently here so a synced copy doesn't bring it back
       const old = COLS.flatMap(c => state[c].map(r => r.id));
+      const keepPrefs = state.prefs;
       state = normalize(data);
+      // a backup's look is newer than whatever is synced; without one, keep the current look
+      state.prefs = Object.keys(state.prefs).length ? { ...state.prefs, u: now() } : keepPrefs;
       const keep = new Set(COLS.flatMap(c => state[c].map(r => r.id)));
       forget(...old.filter(id => !keep.has(id)));
       save();
@@ -2009,7 +2254,7 @@
   $('b-reset').addEventListener('click', () => {
     if (!confirm(`Erase ALL of ${profile.name}’s wallets, entries, monthly items and goals? This cannot be undone.` + (syncCfg ? ' Your other synced devices will be erased too.' : ''))) return;
     const old = COLS.flatMap(c => state[c].map(r => r.id));
-    state = { ...freshState(), deleted: state.deleted };
+    state = { ...freshState(), deleted: state.deleted, prefs: state.prefs };   // erasing data keeps the look
     forget(...old);
     save();
   });
@@ -2067,9 +2312,11 @@
       }
       out[col] = [...m.values()].filter(r => !(r.id in deleted));
     }
+    // the look is one record per profile: the most recently changed one wins
+    out.prefs = ((a.prefs?.u || 0) >= (b.prefs?.u || 0) ? a.prefs : b.prefs) || {};
     return out;
   }
-  const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort()]);
+  const sig = s => JSON.stringify([COLS.map(c => s[c].map(r => r.id + ':' + (r.u || 0)).sort()), Object.keys(s.deleted).sort(), s.prefs?.u || 0]);
   // A profile that has never been used: default wallets only, nothing entered or edited.
   const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length
     && !s.installments.length && !s.plans.length && !s.loans.length && s.wallets.every(w => !w.u && !w.opening);
@@ -2305,6 +2552,8 @@
   }
 
   function render() {
+    // state was replaced (sync, import, reset): pick up its look
+    if (prefs !== state.prefs) { prefs = state.prefs || (state.prefs = {}); applyPrefs(); renderPrefs(); }
     const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
     const owed = renderCards();
     renderLoans();
@@ -2354,6 +2603,7 @@
   renderPrefs();
   renderProfile();
   render();
+  if (pref('startTab') !== 'overview') document.querySelector(`#nav [data-tab="${pref('startTab')}"]`)?.click();
   $('app-version').textContent = APP_VERSION;
   renderSync();
   runSync();
