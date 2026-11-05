@@ -1,0 +1,35 @@
+# Tasks
+
+## A — tests in the repo + automated deploy
+- [ ] Add `package.json`, move the existing UI tests into `tests/`, shared test helpers
+- [ ] GitHub Actions: test → build → deploy to Pages
+- [ ] Build id stamped into the service worker / version label
+
+## B — Vite + modules
+- [ ] Vite build (`base: './'`), `public/` for sw, manifest, icons, vendor
+- [ ] Move CSS to `src/styles.css`, JS to `src/main.js`
+- [ ] Extract pure logic to `src/lib/` (format, merge, schedule) with unit tests
+- [ ] UI + layout tests run against the build
+
+## Features
+- [ ] 11 Clearer card borders (None / Thin / Thick)
+- [ ] 5 In-app dialogs replacing prompt()
+- [ ] 4 Undo after delete (merge rule: newer record beats older tombstone)
+- [ ] 3 Search in Transactions
+- [ ] 1 Budgets per category
+- [ ] 7 Monthly summary
+- [ ] 2 Calendar (.ics) export
+- [ ] 8 Backup reminder + storage warning
+- [ ] 6 Sign-up / welcome screen
+- [ ] 10 Encrypted sync (optional)
+
+## Wrap-up
+- [ ] All tests pass locally and in Actions; phone layout check at 360/390px
+- [ ] Owner switches Pages source to GitHub Actions; live site verified
+
+## Later
+- Net worth over time (daily snapshots)
+- Live currency rates for trip plans
+- Split `src/main.js` into feature modules
+- Real push notifications (needs a server)
+- Recurring transfers
