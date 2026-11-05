@@ -4,6 +4,7 @@ import { COLS, normalize, merge, sig } from './lib/merge.js';
 import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor } from './lib/schedule.js';
 import { budgetStatus } from './lib/budget.js';
 import { monthSummary } from './lib/summary.js';
+import { buildIcs } from './lib/ics.js';
 
 (() => {
   // Set by the Vite build to the commit id; a new id makes the service worker update.
@@ -359,6 +360,54 @@ import { monthSummary } from './lib/summary.js';
     $('cc-alert').innerHTML = all.join('');
     $('cc-alert').hidden = !all.length;
   }
+
+  // ---------- calendar export ----------
+  const ICS_KEY = KEY + '.icsExported';   // per device: when this device last downloaded the file
+  function calendarEvents() {
+    const events = [], horizon = addDays(today(), 366);
+    for (const w of creditCards()) {
+      const s = cardStatus(w);
+      let ym = s.due.slice(0, 7);
+      for (let k = 0; k < 12; k++, ym = nextYm(ym)) {
+        const date = dayIn(ym, w.dueDay);
+        if (date < today()) continue;
+        const amount = k === 0 && s.dueLeft > 0 ? ` ${peso(s.dueLeft)}` : '';
+        events.push({ uid: `card-${w.id}-${date}@wallet-tracker`, date, title: `${w.name} payment due${amount}`,
+          description: 'Credit card payment due (Wallet Tracker).' });
+      }
+    }
+    for (const l of state.loans) {
+      for (const p of loanStatus(l).sched) {
+        if (p.state === 'paid' || p.date > horizon) continue;
+        const title = l.dir === 'lent' ? `${l.person} should pay you ${peso(p.amount)}` : `Pay ${l.person} ${peso(p.amount)}`;
+        events.push({ uid: `loan-${l.id}-${p.n}@wallet-tracker`, date: p.date < today() ? today() : p.date,
+          title: p.date < today() ? `${title} (overdue)` : title, description: `Loan payment ${p.n} (Wallet Tracker).` });
+      }
+    }
+    for (const r of state.recurring.filter(r => r.type === 'expense')) {
+      let ym = nextDue(r).slice(0, 7);
+      for (let k = 0; k < 12; k++, ym = nextYm(ym)) {
+        const date = occDate(r, ym);
+        events.push({ uid: `bill-${r.id}-${ym}@wallet-tracker`, date, title: `${r.category} ${peso(r.amount)}`,
+          description: `Monthly bill from ${walletName(r.walletId)}${r.note ? ` · ${r.note}` : ''} (Wallet Tracker).` });
+      }
+    }
+    return events.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  function renderIcsInfo() {
+    const when = ls.get(ICS_KEY), n = calendarEvents().length;
+    $('ics-info').textContent = (n ? `${n} reminder${n === 1 ? '' : 's'} to export` : 'Nothing to export yet')
+      + (when ? ` · last downloaded ${fmtStamp(new Date(Number(when)).toISOString())}` : '');
+    $('ics-export').disabled = !n;
+  }
+  $('ics-export').addEventListener('click', () => {
+    const events = calendarEvents();
+    if (!events.length) return;
+    download(`wallet-tracker-reminders-${fileSlug()}.ics`, buildIcs(events), 'text/calendar');
+    ls.set(ICS_KEY, String(now()));
+    renderIcsInfo();
+    toast(`Calendar file with ${events.length} reminders downloaded`);
+  });
 
   // ---------- monthly summary ----------
   const monthName = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-PH', { month: 'long' }); };
@@ -1869,6 +1918,7 @@ import { monthSummary } from './lib/summary.js';
     const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
     const owed = renderCards();
     renderSummary();
+    renderIcsInfo();
     renderBudgets();   // before renderLoans, which draws the shared alert box
     renderLoans();
     const m = monthTotals(thisMonth());

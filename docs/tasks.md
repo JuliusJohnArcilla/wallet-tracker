@@ -18,7 +18,7 @@
 - [x] 3 Search in Transactions
 - [x] 1 Budgets per category
 - [x] 7 Monthly summary
-- [ ] 2 Calendar (.ics) export
+- [x] 2 Calendar (.ics) export
 - [ ] 8 Backup reminder + storage warning
 - [ ] 6 Sign-up / welcome screen
 - [ ] 10 Encrypted sync (optional)
