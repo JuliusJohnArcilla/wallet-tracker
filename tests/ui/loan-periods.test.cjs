@@ -1,5 +1,5 @@
 const { JSDOM } = require('jsdom');
-const { html } = require('../helpers.cjs');
+const { html, dialog } = require('../helpers.cjs');
 const errors = [];
 const w = new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.github.io/w/', beforeParse(w) {
   const R = w.Date, FIX = new R('2026-11-10T12:00:00');
@@ -23,7 +23,7 @@ function newLoan({ dir = 'lent', person, amount, total = '', date, freq, count, 
   $('loan-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
   return preview;
 }
-w.prompt = () => '20000'; $('wallet-list').querySelector('[data-rec]').click();
+$('wallet-list').querySelector('[data-rec]').click(); dialog(w, '20000');
 // monthly x6
 let pv = newLoan({ person: 'Ana', amount: '6000', freq: 'monthly', count: '6', first: '2026-11-15' });
 assert.match(pv, /6 monthly payments of ₱1,000\.00 · first Nov 15, last Apr 15/);

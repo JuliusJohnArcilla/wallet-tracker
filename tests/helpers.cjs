@@ -19,7 +19,9 @@ function rawHtml() {
     bundles.push(fs.readFileSync(path.join(path.dirname(DIST), src), 'utf8'));
     return '';
   });
-  html = html.replace('</body>', bundles.map(js => `<script>${js.replace(/<\/script/gi, '<\\/script')}</script>`).join('') + '</body>');
+  // (a replacer function, so "$&"-style sequences in the minified code aren't treated as patterns)
+  const inline = bundles.map(js => `<script>${js.replace(/<\/script/gi, () => '<\\/script')}</script>`).join('');
+  html = html.replace('</body>', () => inline + '</body>');
   html = html.replace(/<link rel="(stylesheet|modulepreload)"[^>]*href="\.\/assets\/[^"]+"[^>]*>/g, '');
   return html;
 }
@@ -29,4 +31,14 @@ function rawHtml() {
 const SEED = `<script>try{if(!localStorage.getItem('walletTracker.profiles'))localStorage.setItem('walletTracker.profiles','[{"id":"main","name":"Me","pin":""}]')}catch(e){}</script>`;
 const html = rawHtml().replace('<head>', '<head>' + SEED);
 
-module.exports = { html, rawHtml, ROOT, DIST };
+// Answer the in-app dialog that's open in window w: fill its fields in order and submit.
+function dialog(w, ...values) {
+  const d = w.document.getElementById('dlg');
+  if (d.hidden) throw new Error('No dialog is open');
+  const inputs = [...d.querySelectorAll('#dlg-fields input')];
+  values.forEach((v, i) => { inputs[i].value = v; });
+  w.document.getElementById('dlg-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+  return w.document.getElementById('dlg-error').textContent;
+}
+
+module.exports = { html, rawHtml, dialog, ROOT, DIST };

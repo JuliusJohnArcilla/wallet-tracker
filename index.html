@@ -38,6 +38,20 @@
   </div>
 </div>
 
+<!-- in-app dialog (replaces the browser's prompt boxes) -->
+<div id="dlg" class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title" hidden>
+  <form id="dlg-form" class="card modal-card" autocomplete="off" novalidate>
+    <h2 id="dlg-title"></h2>
+    <p id="dlg-msg" class="small muted"></p>
+    <div id="dlg-fields" class="stack"></div>
+    <div id="dlg-error" class="neg small" role="alert"></div>
+    <div class="flex modal-actions">
+      <button type="button" class="btn" id="dlg-cancel">Cancel</button>
+      <button type="submit" class="btn primary" id="dlg-ok">Save</button>
+    </div>
+  </form>
+</div>
+
 <div id="app" class="wrap" hidden>
   <header>
     <div class="brand">

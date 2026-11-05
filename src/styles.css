@@ -345,3 +345,20 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 
   #w-body td { white-space: normal; }
 }
+
+/* in-app dialog */
+.modal {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(23, 21, 15, 0.45);
+}
+.modal[hidden] { display: none; }
+.modal-card { width: 100%; max-width: 400px; box-shadow: 0 12px 40px rgba(23, 21, 15, 0.3); }
+.modal-card h2 { margin-bottom: 4px; }
+.modal-card #dlg-msg:empty, .modal-card #dlg-error:empty { display: none; }
+.modal-actions { justify-content: flex-end; margin-top: 16px; }
+@media (max-width: 640px) {
+  /* sheet from the bottom on phones, above the keyboard */
+  .modal { align-items: end; padding: 0; }
+  .modal-card { max-width: none; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom)); }
+  .modal-actions .btn { flex: 1; }
+}

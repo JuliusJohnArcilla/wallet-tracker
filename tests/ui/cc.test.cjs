@@ -1,5 +1,5 @@
 const { JSDOM } = require('jsdom');
-const { html } = require('../helpers.cjs');
+const { html, dialog } = require('../helpers.cjs');
 const errors = [];
 const w = new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.github.io/w/', beforeParse(w) {
   const R = w.Date, FIX = new R('2026-11-10T12:00:00');
@@ -46,8 +46,7 @@ assert.match($('cc-list').textContent, /₱2,000\.00/);
 assert.match($('st-expense').textContent, /₱2,000\.00/); // November: only the Nov 5 charge
 assert.match($('st-total-sub').textContent, /after card debt/);
 // reconcile owed
-w.prompt = () => '2500';
-$('cc-list').querySelector('[data-rec]').click();
+$('cc-list').querySelector('[data-rec]').click(); dialog(w, '2500');
 assert.match($('cc-list').querySelector('.owed').textContent, /₱2,500\.00/);
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 console.log('credit card test passed'); process.exit(0);

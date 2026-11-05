@@ -43,6 +43,48 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     del: k => { try { sessionStorage.removeItem(k); } catch {} },
   };
 
+  // ---------- dialog ----------
+  // ask({ title, message, fields: [{ name, label, value, type, inputmode, placeholder }], ok, validate }, onOk)
+  // shows an in-app form and calls onOk(values) when it's submitted. validate(values) may return an
+  // error message to keep the dialog open.
+  const parseMoney = s => parseFloat(String(s).replace(/[₱,\s]/g, ''));
+  let closeDialog = null;
+  function ask({ title, message = '', fields = [], ok = 'Save', danger = false, validate }, onOk) {
+    closeDialog?.();
+    $('dlg-title').textContent = title;
+    $('dlg-msg').textContent = message;
+    $('dlg-error').textContent = '';
+    $('dlg-ok').textContent = ok;
+    $('dlg-ok').classList.toggle('danger', danger);
+    $('dlg-fields').innerHTML = fields.map(f => `<label>${esc(f.label)}<input name="${f.name}" type="${f.type || 'text'}"
+      ${f.inputmode ? `inputmode="${f.inputmode}"` : ''} ${f.maxlength ? `maxlength="${f.maxlength}"` : ''}
+      value="${esc(f.value ?? '')}" placeholder="${esc(f.placeholder || '')}" autocomplete="off"></label>`).join('');
+    const form = $('dlg-form'), last = document.activeElement;
+    $('dlg').hidden = false;
+    const first = form.querySelector('input');
+    first?.focus(); first?.select?.();
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    function close() {
+      $('dlg').hidden = true; form.onsubmit = null; closeDialog = null;
+      document.removeEventListener('keydown', onKey);
+      last?.focus?.({ preventScroll: true });
+    }
+    closeDialog = close;
+    document.addEventListener('keydown', onKey);
+    form.onsubmit = e => {
+      e.preventDefault();
+      const values = Object.fromEntries(fields.map(f => [f.name, form.elements[f.name].value.trim()]));
+      const err = validate?.(values);
+      if (err) { $('dlg-error').textContent = err; return; }
+      close();
+      onOk(values);
+    };
+  }
+  $('dlg-cancel').addEventListener('click', () => closeDialog?.());
+  $('dlg').addEventListener('click', e => { if (e.target === $('dlg')) closeDialog?.(); });
+  const moneyField = (name, label, value) => ({ name, label, value, inputmode: 'decimal' });
+  const needsMoney = (...names) => v => names.some(n => isNaN(parseMoney(v[n]))) ? 'Enter an amount, e.g. 1500 or 1,500.50' : '';
+
   // ---------- profiles ----------
   // The first profile ("main") keeps the original storage keys, so data from before profiles existed carries over.
   const PROFILES_KEY = 'walletTracker.profiles', CURRENT_KEY = 'walletTracker.current';
@@ -618,9 +660,10 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     const { act, id } = e.target.dataset; if (!id) return;
     const r = state.recurring.find(x => x.id === id);
     if (act === 'amount') {
-      const v = prompt(`New monthly amount for ${r.category} (₱). Past entries stay as they are.`, r.amount);
-      const n = v === null ? NaN : parseFloat(v.replace(/[₱,\s]/g, ''));
-      if (n > 0) { r.amount = Math.round(n * 100) / 100; r.u = now(); save(); }
+      ask({ title: `Change ${r.category}`, message: 'Past entries stay as they are; new months use the new amount.',
+        fields: [moneyField('amount', 'Monthly amount (₱)', r.amount)],
+        validate: v => parseMoney(v.amount) > 0 ? '' : 'Enter an amount above zero.' },
+      ({ amount }) => { r.amount = round2(parseMoney(amount)); r.u = now(); save(); });
     }
     if (act === 'stop' && confirm(`Stop “${r.category}” from repeating? Entries already added stay.`)) {
       state.recurring = state.recurring.filter(x => x.id !== id); forget(id); save();
@@ -761,17 +804,20 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
 
   function reconcile(walletId) {
     const current = balanceOf(walletId), credit = isCreditId(walletId);
-    const input = credit
-      ? prompt(`Amount you currently owe on ${walletName(walletId)} (₱), as shown in the bank’s app:`, (-current).toFixed(2))
-      : prompt(`Actual ${walletName(walletId)} balance shown in the app (₱):`, current.toFixed(2));
-    if (input === null) return;
-    let actual = parseFloat(input.replace(/[₱,\s]/g, ''));
-    if (isNaN(actual)) { alert('Not a valid number.'); return; }
-    if (credit) actual = -Math.abs(actual);
-    const diff = Math.round((actual - current) * 100) / 100;
-    if (diff === 0) return;
-    state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(), note: credit ? `Owed set to ${peso(-actual)}` : `Set to ${peso(actual)}`, u: now() });
-    save();
+    ask({
+      title: `Update ${walletName(walletId)}`,
+      message: credit ? 'Enter what you owe now, as shown in the bank’s app.' : 'Enter the balance shown in the wallet’s app.',
+      fields: [moneyField('amount', credit ? 'Amount owed (₱)' : 'Balance (₱)', (credit ? -current : current).toFixed(2))],
+      validate: needsMoney('amount'),
+    }, ({ amount }) => {
+      let actual = parseMoney(amount);
+      if (credit) actual = -Math.abs(actual);
+      const diff = round2(actual - current);
+      if (diff === 0) return;
+      state.txns.push({ id: uid(), type: 'adjust', amount: diff, walletId, category: 'Balance adjustment', date: today(),
+        note: credit ? `Owed set to ${peso(-actual)}` : `Set to ${peso(actual)}`, u: now() });
+      save();
+    });
   }
 
   // ---------- transactions tab ----------
@@ -1065,12 +1111,14 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     const { act, id } = e.target.dataset; if (!id) return;
     const g = state.goals.find(g => g.id === id);
     if (act === 'add' || act === 'withdraw') {
-      const input = prompt(`${act === 'add' ? 'Amount to add to' : 'Amount to take out of'} “${g.name}” (₱):`);
-      if (input === null) return;
-      const n = parseFloat(input.replace(/[₱,\s]/g, ''));
-      if (!(n > 0)) { alert('Enter a positive amount.'); return; }
-      state.goalEntries.push({ id: uid(), goalId: id, amount: act === 'add' ? n : -n, date: today(), u: now() });
-      save();
+      ask({ title: act === 'add' ? `Add to “${g.name}”` : `Take out of “${g.name}”`, ok: act === 'add' ? 'Add' : 'Withdraw',
+        fields: [moneyField('amount', 'Amount (₱)', '')],
+        validate: v => parseMoney(v.amount) > 0 ? '' : 'Enter an amount above zero.' },
+      ({ amount }) => {
+        const n = round2(parseMoney(amount));
+        state.goalEntries.push({ id: uid(), goalId: id, amount: act === 'add' ? n : -n, date: today(), u: now() });
+        save();
+      });
     }
     if (act === 'del' && confirm(`Delete goal “${g.name}” and its history?`)) {
       forget(id, ...state.goalEntries.filter(x => x.goalId === id).map(x => x.id));
@@ -1112,11 +1160,14 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     const { act, id } = e.target.dataset; if (!id) return;
     const w = state.wallets.find(w => w.id === id);
     if (act === 'rename') {
-      const name = prompt('Wallet name:', w.name); if (name && name.trim()) { w.name = name.trim(); w.u = now(); save(); }
+      ask({ title: 'Rename wallet', fields: [{ name: 'name', label: 'Name', value: w.name }],
+        validate: v => v.name ? '' : 'Enter a name.' },
+      ({ name }) => { w.name = name; w.u = now(); save(); });
     }
     if (act === 'opening') {
-      const v = prompt(`Starting balance for ${w.name} (₱):`, w.opening);
-      if (v !== null && !isNaN(parseFloat(v))) { w.opening = parseFloat(v); w.u = now(); save(); }
+      ask({ title: `Starting balance for ${w.name}`, message: 'The balance before your first entry in the app.',
+        fields: [moneyField('amount', 'Starting balance (₱)', w.opening)], validate: needsMoney('amount') },
+      ({ amount }) => { w.opening = round2(parseMoney(amount)); w.u = now(); save(); });
     }
     if (act === 'del') {
       const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id);
@@ -1139,26 +1190,34 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   $('chip').addEventListener('click', openGate);
   $('pf-switch').addEventListener('click', openGate);
   $('pf-rename').addEventListener('click', () => {
-    const name = prompt('Profile name:', profile.name);
-    if (name && name.trim()) { profile.name = name.trim(); saveProfiles(); renderProfile(); renderSync(); }
+    ask({ title: 'Rename profile', fields: [{ name: 'name', label: 'Name', value: profile.name }],
+      validate: v => v.name ? '' : 'Enter a name.' },
+    ({ name }) => { profile.name = name; saveProfiles(); renderProfile(); renderSync(); renderPrefs(); });
   });
-  $('pf-pin').addEventListener('click', async () => {
-    const a = prompt('New PIN (4–8 digits):'); if (a === null) return;
-    if (!/^\d{4,8}$/.test(a)) { alert('Use 4 to 8 digits.'); return; }
-    if (prompt('Type the PIN again:') !== a) { alert('PINs didn’t match.'); return; }
-    profile.pin = await hashPin(profile.id, a);
-    saveProfiles(); ss.set(UNLOCKED_KEY, profile.id); renderProfile();
+  $('pf-pin').addEventListener('click', () => {
+    const pinField = (name, label) => ({ name, label, type: 'password', inputmode: 'numeric', maxlength: 8 });
+    ask({ title: profile.pin ? 'Change PIN' : 'Set a PIN', message: 'Asked when someone opens this profile in the app.',
+      fields: [pinField('a', 'New PIN (4–8 digits)'), pinField('b', 'Type it again')],
+      validate: v => !/^\d{4,8}$/.test(v.a) ? 'Use 4 to 8 digits.' : v.a !== v.b ? 'The two PINs don’t match.' : '' },
+    async ({ a }) => {
+      profile.pin = await hashPin(profile.id, a);
+      saveProfiles(); ss.set(UNLOCKED_KEY, profile.id); renderProfile();
+    });
   });
   $('pf-pin-remove').addEventListener('click', () => {
     if (confirm('Remove the PIN from this profile?')) { profile.pin = ''; saveProfiles(); renderProfile(); }
   });
   $('pf-delete').addEventListener('click', () => {
-    const typed = prompt(`This deletes “${profile.name}” and all of its data on this device (synced data on GitHub is kept).\n\nType the profile name to confirm:`);
-    if (typed === null || typed.trim() !== profile.name) return;
-    [KEY, KEY + '.sync', KEY + '.prefs', KEY + '.theme'].forEach(ls.del);
-    profiles = profiles.filter(p => p.id !== profile.id);
-    saveProfiles(); ls.del(CURRENT_KEY);
-    openGate();
+    ask({ title: `Delete “${profile.name}”?`, ok: 'Delete profile', danger: true,
+      message: 'All of this profile’s data on this device is deleted. Synced data on GitHub is kept.',
+      fields: [{ name: 'name', label: 'Type the profile name to confirm', placeholder: profile.name }],
+      validate: v => v.name === profile.name ? '' : 'The name doesn’t match.' },
+    () => {
+      [KEY, KEY + '.sync', KEY + '.prefs', KEY + '.theme'].forEach(ls.del);
+      profiles = profiles.filter(p => p.id !== profile.id);
+      saveProfiles(); ls.del(CURRENT_KEY);
+      openGate();
+    });
   });
 
   // ---------- personalize ----------

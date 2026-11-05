@@ -12,8 +12,8 @@
 - [x] UI + layout tests run against the build
 
 ## Features
-- [ ] 11 Clearer card borders (None / Thin / Thick)
-- [ ] 5 In-app dialogs replacing prompt()
+- [x] 11 Clearer card borders (None / Thin / Thick)
+- [x] 5 In-app dialogs replacing prompt()
 - [ ] 4 Undo after delete (merge rule: newer record beats older tombstone)
 - [ ] 3 Search in Transactions
 - [ ] 1 Budgets per category

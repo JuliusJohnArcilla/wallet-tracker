@@ -1,5 +1,5 @@
 const { JSDOM } = require('jsdom');
-const { html } = require('../helpers.cjs');
+const { html, dialog } = require('../helpers.cjs');
 const errors = [];
 const w = new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.github.io/w/', beforeParse(w) {
   const R = w.Date, FIX = new R('2026-11-10T12:00:00');
@@ -11,7 +11,7 @@ const w = new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.github.io
 const $ = id => w.document.getElementById(id), assert = require('assert');
 const t = el => el.textContent.replace(/\s+/g, ' ');
 const gcashTile = () => t($('wallet-list').querySelector('.wallet'));
-w.prompt = () => '10000'; $('wallet-list').querySelector('[data-rec]').click();
+$('wallet-list').querySelector('[data-rec]').click(); dialog(w, '10000');
 const gcash = $('wallet-list').querySelector('[data-rec]').dataset.rec;
 // lend Juan 3,000, pay back 3,300 by Nov 15
 $('loan-new-btn').click();

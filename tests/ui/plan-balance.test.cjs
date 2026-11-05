@@ -1,5 +1,5 @@
 const { JSDOM } = require('jsdom');
-const { html } = require('../helpers.cjs');
+const { html, dialog } = require('../helpers.cjs');
 const errors = [];
 const w = new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.github.io/w/', beforeParse(w) {
   w.Chart = class { destroy() {} }; w.matchMedia = () => ({ matches: false, addEventListener() {} });
@@ -10,7 +10,7 @@ const $ = id => w.document.getElementById(id), assert = require('assert');
 const fire = (el, t) => el.dispatchEvent(new w.Event(t, { bubbles: true }));
 const txt = el => el.textContent.replace(/\s+/g, '');
 // 50,000 in GCash
-w.prompt = () => '50000'; $('wallet-list').querySelector('[data-rec]').click();
+$('wallet-list').querySelector('[data-rec]').click(); dialog(w, '50000');
 // plan: blank, one item 20,000
 w.document.querySelector('#nav [data-tab="plan"]').click();
 $('pn-name').value = 'Trip'; $('pn-template').value = 'blank';
