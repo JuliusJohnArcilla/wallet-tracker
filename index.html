@@ -88,6 +88,17 @@
       <div class="wallets" id="wallet-list"></div>
     </div>
 
+    <div class="card" data-sec="budgets">
+      <div class="flex between"><h2>Budgets</h2><span class="muted small" id="budget-summary"></span></div>
+      <div id="budget-list"></div>
+      <form id="budget-form" class="budget-form" autocomplete="off">
+        <label>Category<input id="bd-cat" list="bd-cats" required placeholder="e.g. Food"></label>
+        <label>Monthly limit (₱)<input id="bd-limit" inputmode="decimal" required placeholder="e.g. 8000"></label>
+        <button class="btn primary">Add budget</button>
+        <datalist id="bd-cats"></datalist>
+      </form>
+    </div>
+
     <div class="card" data-sec="cards">
       <div class="flex between"><h2>Credit cards</h2><span class="muted small" id="cc-summary"></span></div>
       <div class="wallets" id="cc-list"></div>

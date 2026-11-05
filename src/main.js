@@ -2,6 +2,7 @@ import { uid, pad, ymd, today, thisMonth, nextYm, prevYm, dayIn, addDays, daysBe
   round2, peso, fmtDate, monthLabel, esc, isLight } from './lib/format.js';
 import { COLS, normalize, merge, sig } from './lib/merge.js';
 import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor } from './lib/schedule.js';
+import { budgetStatus } from './lib/budget.js';
 
 (() => {
   // Set by the Vite build to the commit id; a new id makes the service worker update.
@@ -168,7 +169,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   // Every record carries `u` (last-modified ms) and deletions leave a tombstone in `deleted`,
   // so two devices can be merged record by record.
   function freshState() {
-    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], deleted: {}, prefs: {} };
+    return { wallets: DEFAULT_WALLETS.map(name => ({ id: uid(), name, opening: 0 })), txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [], loans: [], budgets: [], deleted: {}, prefs: {} };
   }
   function load() {
     const s = ls.json(KEY);
@@ -350,12 +351,52 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     }
   }));
 
-  // one reminder box for card bills and loan deadlines
-  let cardAlerts = [], loanAlerts = [];
+  // one reminder box for card bills, loan deadlines and budgets
+  let cardAlerts = [], loanAlerts = [], budgetAlerts = [];
   function renderAlerts() {
-    const all = [...cardAlerts, ...loanAlerts];
+    const all = [...cardAlerts, ...loanAlerts, ...budgetAlerts];
     $('cc-alert').innerHTML = all.join('');
     $('cc-alert').hidden = !all.length;
+  }
+
+  // ---------- budgets ----------
+  $('budget-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const category = $('bd-cat').value.trim(), limit = round2(parseMoney($('bd-limit').value));
+    if (!category || !(limit > 0)) { toast('Enter a category and a limit above zero'); return; }
+    const existing = state.budgets.find(b => b.category.toLowerCase() === category.toLowerCase());
+    if (existing) Object.assign(existing, { limit, u: now() });
+    else state.budgets.push({ id: uid(), category, limit, u: now() });
+    e.target.reset();
+    save();
+  });
+  $('budget-list').addEventListener('click', e => {
+    const { bact, id } = e.target.dataset; if (!bact) return;
+    const b = state.budgets.find(x => x.id === id);
+    if (bact === 'edit') ask({ title: `${b.category} budget`, fields: [moneyField('limit', 'Monthly limit (₱)', b.limit)],
+      validate: v => parseMoney(v.limit) > 0 ? '' : 'Enter a limit above zero.' },
+    ({ limit }) => { b.limit = round2(parseMoney(limit)); b.u = now(); save(); });
+    if (bact === 'del') withUndo(`${b.category} budget`, () => { state.budgets = state.budgets.filter(x => x.id !== id); forget(id); });
+  });
+  function renderBudgets() {
+    const rows = budgetStatus(state.budgets, state.txns, thisMonth());
+    const totalLimit = rows.reduce((s, b) => s + b.limit, 0), totalSpent = rows.reduce((s, b) => s + b.spent, 0);
+    $('budget-summary').textContent = rows.length ? `${peso(totalSpent)} of ${peso(totalLimit)} this month` : '';
+    $('budget-list').innerHTML = rows.map(b => `<div class="budget-row">
+        <div class="flex between"><strong>${esc(b.category)}</strong>
+          <span class="small">${peso(b.spent)} <span class="muted">of ${peso(b.limit)}</span></span></div>
+        <div class="bar-track"><div class="bar-fill ${b.level}" style="width:${Math.min(100, b.pct * 100)}%"></div></div>
+        <div class="flex between small">
+          <span class="${b.level === 'over' ? 'neg' : b.level === 'near' ? 'warn' : 'muted'}">${
+            b.level === 'over' ? `⚠ Over by ${peso(-b.left)}` : b.level === 'near' ? `Near the limit · ${peso(b.left)} left` : `${peso(b.left)} left`}</span>
+          <span><button class="link" data-bact="edit" data-id="${b.id}">Edit</button><button class="link danger" data-bact="del" data-id="${b.id}">Remove</button></span>
+        </div>
+      </div>`).join('') || '<div class="empty" style="padding:8px 0">Set a monthly limit for a category, e.g. Food ₱8,000, and see how much is left.</div>';
+    $('bd-cats').innerHTML = [...new Set([...CATS.expense, ...usedCategories('expense')])]
+      .filter(c => !state.budgets.some(b => b.category.toLowerCase() === c.toLowerCase()))
+      .map(c => `<option value="${esc(c)}">`).join('');
+    budgetAlerts = rows.filter(b => b.level === 'over').map(b =>
+      `<div><strong>${esc(b.category)}</strong> is over its monthly budget by ${peso(-b.left)} (${peso(b.spent)} of ${peso(b.limit)})</div>`);
   }
 
   // ---------- loans ----------
@@ -1262,7 +1303,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   const DEFAULT_PREFS = { theme: '', accent: '', chart: 'earthy', bg: '', bgColor: '', dim: 20, blur: 0, card: '', cardOpacity: 100,
     radius: 'rounded', shadow: 'none', outline: 'thin', font: 'system', size: 1, density: 'comfortable', startTab: 'overview',
     privacy: false, sections: null };
-  const SECTIONS = [['stats', 'Balance summary'], ['wallets', 'Wallets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
+  const SECTIONS = [['stats', 'Balance summary'], ['wallets', 'Wallets'], ['budgets', 'Budgets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
     ['entry', 'Add entry'], ['monthly', 'Monthly'], ['charts', 'Charts']];
   // revenue / expense colors: on the page in light and dark mode, and inside light or dark custom cards
   const CHART_PAIRS = {
@@ -1562,7 +1603,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
 
   // A profile that has never been used: default wallets only, nothing entered or edited.
   const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length
-    && !s.installments.length && !s.plans.length && !s.loans.length && s.wallets.every(w => !w.u && !w.opening);
+    && !s.installments.length && !s.plans.length && !s.loans.length && !s.budgets.length && s.wallets.every(w => !w.u && !w.opening);
 
   let syncing = false, syncAgain = false, syncTimer;
   function scheduleSync() {
@@ -1799,6 +1840,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     if (prefs !== state.prefs) { prefs = state.prefs || (state.prefs = {}); applyPrefs(); renderPrefs(); }
     const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
     const owed = renderCards();
+    renderBudgets();   // before renderLoans, which draws the shared alert box
     renderLoans();
     const m = monthTotals(thisMonth());
     $('st-total').textContent = peso(total);

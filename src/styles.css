@@ -380,3 +380,18 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 /* Transactions search */
 .search { display: block; margin-bottom: 10px; }
 .search input { margin-top: 4px; }
+
+/* budgets */
+.budget-row { padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.budget-row:last-of-type { border-bottom: 0; }
+.budget-row .bar-track { margin: 6px 0 4px; }
+.bar-fill.near { background: #b5835a; }
+.bar-fill.over { background: var(--bad); }
+.warn { color: #9a6a3e; }
+:root[data-theme="dark"] .warn { color: #d9a877; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { color: #d9a877; } }
+.budget-form { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 12px; }
+@media (max-width: 640px) {
+  .budget-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .budget-form .btn { grid-column: 1 / -1; }
+}

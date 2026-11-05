@@ -76,7 +76,7 @@ const assert = require('assert');
   const loansToggle = $('sec-list').querySelector('[data-sec-toggle="loans"]'); loansToggle.checked = false;
   loansToggle.dispatchEvent(new w.Event('change', { bubbles: true }));
   assert.ok(w.document.querySelector('[data-sec="loans"]').classList.contains('sec-off'));
-  for (let i = 0; i < 6; i++) $('sec-list').querySelector('[data-sec-move="charts"][data-dir="-1"]').click();
+  for (let up; !(up = $('sec-list').querySelector('[data-sec-move="charts"][data-dir="-1"]')).disabled;) up.click();
   assert.strictEqual(w.document.querySelector('[data-sec="charts"]').style.order, '1');
   assert.ok($('sec-list').querySelector('[data-sec-move="charts"][data-dir="-1"]').disabled);
 

@@ -1,10 +1,10 @@
 // Profile data shape and the sync merge. Every record carries `u` (last-modified ms) and deletions
 // leave a tombstone in `deleted`, so two devices can be merged record by record.
 
-export const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans', 'loans'];
+export const COLS = ['wallets', 'txns', 'goals', 'goalEntries', 'recurring', 'installments', 'plans', 'loans', 'budgets'];
 
 export const normalize = s => ({ wallets: [], txns: [], goals: [], goalEntries: [], recurring: [], installments: [], plans: [],
-  loans: [], deleted: {}, prefs: {}, ...s });
+  loans: [], budgets: [], deleted: {}, prefs: {}, ...s });
 
 export function merge(a, b) {
   const deleted = { ...a.deleted };
