@@ -9,15 +9,18 @@ const DIST = path.join(ROOT, 'dist', 'index.html');
 // The app's HTML with its script inlined, ready for jsdom (which can't load module scripts or
 // external files). Chart.js is left out; tests stub window.Chart.
 function rawHtml() {
-  const file = fs.existsSync(DIST) ? DIST : path.join(ROOT, 'index.html');
-  let html = fs.readFileSync(file, 'utf8');
+  if (!fs.existsSync(DIST)) throw new Error('No build found: run "npm run build" before the tests (or "npm run check").');
+  let html = fs.readFileSync(DIST, 'utf8');
   html = html.replace(/<script[^>]*src="[^"]*chart\.umd\.min\.js"[^>]*><\/script>/, '');
-  // inline the bundled module script (dist) so jsdom runs it as a classic script
+  // Inline the bundled module script so jsdom runs it. Module scripts wait for the page, so put
+  // it at the end of <body> to keep that order.
+  const bundles = [];
   html = html.replace(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/script>/g, (_, src) => {
-    const js = fs.readFileSync(path.join(path.dirname(file), src), 'utf8');
-    return `<script>${js.replace(/<\/script/gi, '<\\/script')}</script>`;
+    bundles.push(fs.readFileSync(path.join(path.dirname(DIST), src), 'utf8'));
+    return '';
   });
-  html = html.replace(/<link rel="stylesheet"[^>]*href="\.\/assets\/[^"]+"[^>]*>/g, '');
+  html = html.replace('</body>', bundles.map(js => `<script>${js.replace(/<\/script/gi, '<\\/script')}</script>`).join('') + '</body>');
+  html = html.replace(/<link rel="(stylesheet|modulepreload)"[^>]*href="\.\/assets\/[^"]+"[^>]*>/g, '');
   return html;
 }
 

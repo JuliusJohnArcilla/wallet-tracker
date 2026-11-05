@@ -6,10 +6,10 @@
 - [x] Build id stamped into the service worker / version label
 
 ## B — Vite + modules
-- [ ] Vite build (`base: './'`), `public/` for sw, manifest, icons, vendor
-- [ ] Move CSS to `src/styles.css`, JS to `src/main.js`
-- [ ] Extract pure logic to `src/lib/` (format, merge, schedule) with unit tests
-- [ ] UI + layout tests run against the build
+- [x] Vite build (`base: './'`), `public/` for sw, manifest, icons, vendor
+- [x] Move CSS to `src/styles.css`, JS to `src/main.js`
+- [x] Extract pure logic to `src/lib/` (format, merge, schedule) with unit tests
+- [x] UI + layout tests run against the build
 
 ## Features
 - [ ] 11 Clearer card borders (None / Thin / Thick)

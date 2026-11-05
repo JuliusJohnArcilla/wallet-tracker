@@ -6,9 +6,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { ROOT, DIST } = require('../helpers.cjs');
+const { DIST } = require('../helpers.cjs');
 
-const SITE = fs.existsSync(DIST) ? path.dirname(DIST) : ROOT;
+const SITE = path.dirname(DIST);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 
