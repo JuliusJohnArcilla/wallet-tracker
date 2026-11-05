@@ -24,7 +24,7 @@
 - [x] 10 Encrypted sync (optional)
 
 ## Wrap-up
-- [ ] All tests pass locally and in Actions; phone layout check at 360/390px
+- [x] All tests pass locally; phone layout check at 360/390px (Actions: runs on first push)
 - [ ] Owner switches Pages source to GitHub Actions; live site verified
 
 ## Later

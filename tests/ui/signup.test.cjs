@@ -75,6 +75,8 @@ const t = el => el.textContent.replace(/\s+/g, ' ');
   assert.match(t($('st-total')), /₱13,300\.50/);
   assert.match($('sync-badge').textContent, /Julius/);
   assert.match($('pf-pin-state').textContent, /PIN on/);
+  assert.ok($('cc-alert').hidden, 'no backup nagging on day one');
+  assert.ok(Number(w.localStorage.getItem('walletTracker.v1.lastBackup')) > 0, 'backup clock started');
 
   // ---- second device: restore from sync ----
   gists.g1 = { 'wallet-tracker-julius.json': JSON.stringify({ ...data, txns: [{ id: 'x', type: 'expense', amount: 300, walletId: data.wallets[0].id,

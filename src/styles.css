@@ -426,3 +426,6 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 .enc-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
   padding: 10px 12px; margin: 0 0 12px; border-radius: var(--r-sm); background: var(--surface-2); }
 .enc-row > span:first-child { flex: 1 1 220px; }
+
+button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.su-wallet label { font-size: 15px; color: var(--text); font-weight: 600; }

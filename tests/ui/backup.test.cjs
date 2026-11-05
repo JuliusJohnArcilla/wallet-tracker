@@ -25,7 +25,7 @@ w.document.querySelector('#type-seg [data-type="expense"]').click();
 $('f-amount').value = '100'; $('f-cat').value = 'Food';
 $('txn-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
 assert.ok(!$('cc-alert').hidden);
-assert.match(t($('cc-alert')), /Back up your data.*you haven’t backed it up yet/);
+assert.match(t($('cc-alert')), /Back up your data.*it hasn’t been backed up yet/);
 
 // "Export now" downloads the backup and clears the reminder
 $('cc-alert').querySelector('[data-backup="export"]').click();

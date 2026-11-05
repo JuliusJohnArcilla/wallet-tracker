@@ -516,10 +516,11 @@ import { encryptJson, decryptJson, isEncrypted } from './lib/crypto.js';
   }
   function maintenanceAlerts() {
     const out = [];
+    if (ls.get(BACKUP_KEY) === null) ls.set(BACKUP_KEY, String(now()));   // the 30 days start when you start using the app
     const last = Number(ls.get(BACKUP_KEY)) || 0, snoozed = Number(ls.get(BACKUP_SNOOZE_KEY)) > now();
     const synced = syncCfg?.lastSync && now() - syncCfg.lastSync < 30 * 864e5;
     if (!synced && !snoozed && !isPristine(state) && now() - last > 30 * 864e5) {
-      const ago = last ? `your last backup was ${Math.floor((now() - last) / 864e5)} days ago` : 'you haven’t backed it up yet';
+      const ago = last ? `your last backup was ${Math.floor((now() - last) / 864e5)} days ago` : 'it hasn’t been backed up yet';
       out.push(`<div>💾 <strong>Back up your data</strong>: it’s only stored in this browser and ${ago}.
         <button class="link" data-backup="export">Export now</button><button class="link" data-backup="later">Remind me in a week</button></div>`);
     }
