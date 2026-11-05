@@ -19,7 +19,7 @@
 - [x] 1 Budgets per category
 - [x] 7 Monthly summary
 - [x] 2 Calendar (.ics) export
-- [ ] 8 Backup reminder + storage warning
+- [x] 8 Backup reminder + storage warning
 - [ ] 6 Sign-up / welcome screen
 - [ ] 10 Encrypted sync (optional)
 

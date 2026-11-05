@@ -28,7 +28,10 @@ function rawHtml() {
 
 // Most tests start inside an existing profile, so seed one unless the test brings its own
 // storage. The sign-up test uses rawHtml() to see the first-run screen.
-const SEED = `<script>try{if(!localStorage.getItem('walletTracker.profiles'))localStorage.setItem('walletTracker.profiles','[{"id":"main","name":"Me","pin":""}]')}catch(e){}</script>`;
+// Also mark a recent backup so the backup reminder doesn't show up in unrelated tests (a test can
+// set 'walletTracker.v1.lastBackup' itself to see it).
+const SEED = `<script>try{if(!localStorage.getItem('walletTracker.profiles'))localStorage.setItem('walletTracker.profiles','[{"id":"main","name":"Me","pin":""}]');`
+  + `if(localStorage.getItem('walletTracker.v1.lastBackup')===null)localStorage.setItem('walletTracker.v1.lastBackup',String(Date.now()))}catch(e){}</script>`;
 const html = rawHtml().replace('<head>', '<head>' + SEED);
 
 // Answer the in-app dialog that's open in window w: fill its fields in order and submit.

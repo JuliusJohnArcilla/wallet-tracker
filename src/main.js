@@ -347,6 +347,8 @@ import { buildIcs } from './lib/ics.js';
   ['cc-list', 'cc-alert'].forEach(id => $(id).addEventListener('click', e => {
     if (e.target.dataset.pay) payCard(e.target.dataset.pay);
     if (e.target.dataset.rec) reconcile(e.target.dataset.rec);
+    if (e.target.dataset.backup === 'export') $('b-export').click();
+    if (e.target.dataset.backup === 'later') { ls.set(BACKUP_SNOOZE_KEY, String(now() + 7 * 864e5)); render(); }
     if (e.target.dataset.loanpay) {
       payingLoan = e.target.dataset.loanpay; renderLoans();
       $('loan-list').querySelector(`[data-payform="${payingLoan}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -356,7 +358,7 @@ import { buildIcs } from './lib/ics.js';
   // one reminder box for card bills, loan deadlines and budgets
   let cardAlerts = [], loanAlerts = [], budgetAlerts = [];
   function renderAlerts() {
-    const all = [...cardAlerts, ...loanAlerts, ...budgetAlerts];
+    const all = [...cardAlerts, ...loanAlerts, ...budgetAlerts, ...maintenanceAlerts()];
     $('cc-alert').innerHTML = all.join('');
     $('cc-alert').hidden = !all.length;
   }
@@ -428,6 +430,34 @@ import { buildIcs } from './lib/ics.js';
         <span>${esc(c.category)} <span class="muted small">${peso(c.now)}</span></span>
         <span class="${c.diff > 0 ? 'neg' : 'pos'}">${c.diff > 0 ? '▲' : '▼'} ${peso(Math.abs(c.diff))} <span class="muted small">vs ${short}</span></span>
       </div>`).join('') : '';
+  }
+
+  // ---------- backup reminder + storage warning ----------
+  const BACKUP_KEY = KEY + '.lastBackup', BACKUP_SNOOZE_KEY = KEY + '.backupSnooze';
+  const STORAGE_LIMIT = 5 * 1024 * 1024;   // most browsers allow about 5 MB per site
+  function storageUsed() {
+    let bytes = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        bytes += (k.length + (localStorage.getItem(k) || '').length) * 2;   // stored as UTF-16
+      }
+    } catch {}
+    return bytes;
+  }
+  function maintenanceAlerts() {
+    const out = [];
+    const last = Number(ls.get(BACKUP_KEY)) || 0, snoozed = Number(ls.get(BACKUP_SNOOZE_KEY)) > now();
+    const synced = syncCfg?.lastSync && now() - syncCfg.lastSync < 30 * 864e5;
+    if (!synced && !snoozed && !isPristine(state) && now() - last > 30 * 864e5) {
+      const ago = last ? `your last backup was ${Math.floor((now() - last) / 864e5)} days ago` : 'you haven’t backed it up yet';
+      out.push(`<div>💾 <strong>Back up your data</strong>: it’s only stored in this browser and ${ago}.
+        <button class="link" data-backup="export">Export now</button><button class="link" data-backup="later">Remind me in a week</button></div>`);
+    }
+    const used = storageUsed();
+    if (used > STORAGE_LIMIT * 0.8) out.push(`<div>⚠ <strong>Browser storage is almost full</strong> (${(used / 1048576).toFixed(1)} of about 5 MB).
+      A background photo takes the most room: switch to a preset background, or export a backup and erase old data.</div>`);
+    return out;
   }
 
   // ---------- budgets ----------
@@ -1605,7 +1635,11 @@ import { buildIcs } from './lib/ics.js';
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   const fileSlug = () => profile.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profile';
-  $('b-export').addEventListener('click', () => download(`wallet-tracker-${fileSlug()}-${today()}.json`, JSON.stringify(state, null, 2), 'application/json'));
+  $('b-export').addEventListener('click', () => {
+    download(`wallet-tracker-${fileSlug()}-${today()}.json`, JSON.stringify(state, null, 2), 'application/json');
+    ls.set(BACKUP_KEY, String(now()));
+    render();
+  });
   $('b-csv').addEventListener('click', () => {
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [['date', 'type', 'wallet', 'to_wallet', 'category', 'amount', 'monthly', 'note'].join(',')];
