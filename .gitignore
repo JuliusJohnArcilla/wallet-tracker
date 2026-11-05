@@ -1,2 +1,6 @@
-*.json
-!manifest.webmanifest
+node_modules/
+dist/
+*.json.bak
+# personal backups exported from the app
+wallet-tracker-*.json
+wallet-transactions-*.csv

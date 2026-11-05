@@ -1,5 +1,6 @@
-// Offline cache for the app shell. Bump VERSION whenever any of these files change.
-const VERSION = 'v13';
+// Offline cache for the app shell. The page registers this as sw.js?v=<build id>, so every
+// deploy gets its own cache and old ones are cleared.
+const VERSION = 'wallet-' + (new URL(self.location).searchParams.get('v') || 'dev');
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'vendor/chart.umd.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

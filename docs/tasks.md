@@ -1,9 +1,9 @@
 # Tasks
 
 ## A — tests in the repo + automated deploy
-- [ ] Add `package.json`, move the existing UI tests into `tests/`, shared test helpers
-- [ ] GitHub Actions: test → build → deploy to Pages
-- [ ] Build id stamped into the service worker / version label
+- [x] Add `package.json`, move the existing UI tests into `tests/`, shared test helpers
+- [x] GitHub Actions: test → build → deploy to Pages
+- [x] Build id stamped into the service worker / version label
 
 ## B — Vite + modules
 - [ ] Vite build (`base: './'`), `public/` for sw, manifest, icons, vendor

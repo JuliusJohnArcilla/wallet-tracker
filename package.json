@@ -1,0 +1,16 @@
+{
+  "name": "wallet-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Manual wallet, credit card, loan and budget tracker (PWA) hosted on GitHub Pages",
+  "scripts": {
+    "test": "node --test --test-concurrency=4 \"tests/**/*.test.*\"",
+    "test:ui": "node --test \"tests/ui/*.test.cjs\"",
+    "test:layout": "node --test \"tests/layout/*.test.cjs\"",
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "24.1.0",
+    "playwright": "1.48.2"
+  }
+}

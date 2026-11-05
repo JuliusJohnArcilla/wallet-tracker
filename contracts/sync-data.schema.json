@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wallet-tracker/sync-data",
+  "title": "Wallet Tracker profile data (localStorage and synced Gist file)",
+  "description": "Either this object as plain JSON, or an encrypted envelope (see $defs.encrypted).",
+  "oneOf": [{ "$ref": "#/$defs/profileData" }, { "$ref": "#/$defs/encrypted" }],
+  "$defs": {
+    "record": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "u": { "type": "number", "description": "last-modified time in ms; higher wins on merge" }
+      }
+    },
+    "collection": { "type": "array", "items": { "$ref": "#/$defs/record" } },
+    "profileData": {
+      "type": "object",
+      "properties": {
+        "wallets": { "$ref": "#/$defs/collection", "description": "cash wallets and credit cards (kind: 'credit', limit, closeDay, dueDay, addedOn)" },
+        "txns": { "$ref": "#/$defs/collection", "description": "type: income | expense | transfer | adjust | loan; amount, walletId, toWalletId, category, date (YYYY-MM-DD), note, recurringId, installmentId, planId, loanId" },
+        "goals": { "$ref": "#/$defs/collection" },
+        "goalEntries": { "$ref": "#/$defs/collection" },
+        "recurring": { "$ref": "#/$defs/collection", "description": "monthly rules: type, amount, walletId, category, day, start (YYYY-MM)" },
+        "installments": { "$ref": "#/$defs/collection", "description": "walletId, total, months, rate, purchaseDate, closedAt" },
+        "plans": { "$ref": "#/$defs/collection" },
+        "loans": { "$ref": "#/$defs/collection", "description": "dir: lent | borrowed; principal, total, date, due, freq, count, firstDue" },
+        "budgets": { "$ref": "#/$defs/collection", "description": "category, limit (monthly)" },
+        "deleted": { "type": "object", "additionalProperties": { "type": "number" }, "description": "id → deleted-at ms (tombstones)" },
+        "prefs": { "type": "object", "description": "the profile's look; one record, newest u wins" }
+      },
+      "additionalProperties": true
+    },
+    "encrypted": {
+      "type": "object",
+      "required": ["enc", "salt", "iv", "data"],
+      "properties": {
+        "enc": { "const": "aes-gcm-v1" },
+        "salt": { "type": "string", "description": "base64, 16 bytes, PBKDF2 salt" },
+        "iv": { "type": "string", "description": "base64, 12 bytes" },
+        "data": { "type": "string", "description": "base64 AES-GCM ciphertext of the profileData JSON" }
+      }
+    }
+  }
+}

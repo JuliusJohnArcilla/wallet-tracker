@@ -814,7 +814,9 @@
 
 <script>
 (() => {
-  const APP_VERSION = 'v13';   // keep in step with VERSION in sw.js
+  // The build replaces __BUILD__ with the commit id; a new id makes the service worker update.
+  const BUILD_ID = '__BUILD__';
+  const APP_VERSION = 'v14' + (BUILD_ID.startsWith('__') ? '' : ' · ' + BUILD_ID);
   const DEFAULT_WALLETS = ['GCash', 'Maya', 'GoTyme', 'MariBank', 'BanKo'];
   const CATS = {
     expense: ['Food', 'Groceries', 'Transport', 'Bills & Utilities', 'Rent', 'Load & Internet', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Education', 'Family', 'Other'],
@@ -936,7 +938,7 @@
   }
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(BUILD_ID)).catch(() => {});
   }
   navigator.storage?.persist?.().catch(() => {});
 
