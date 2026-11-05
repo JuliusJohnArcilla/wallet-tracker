@@ -3,6 +3,7 @@ import { uid, pad, ymd, today, thisMonth, nextYm, prevYm, dayIn, addDays, daysBe
 import { COLS, normalize, merge, sig } from './lib/merge.js';
 import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor } from './lib/schedule.js';
 import { budgetStatus } from './lib/budget.js';
+import { monthSummary } from './lib/summary.js';
 
 (() => {
   // Set by the Vite build to the commit id; a new id makes the service worker update.
@@ -357,6 +358,27 @@ import { budgetStatus } from './lib/budget.js';
     const all = [...cardAlerts, ...loanAlerts, ...budgetAlerts];
     $('cc-alert').innerHTML = all.join('');
     $('cc-alert').hidden = !all.length;
+  }
+
+  // ---------- monthly summary ----------
+  const monthName = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-PH', { month: 'long' }); };
+  function renderSummary() {
+    const s = monthSummary(state.txns, today());
+    const days = `the first ${s.day} day${s.day === 1 ? '' : 's'}`;
+    let headline;
+    if (!s.spent && !s.prevSpent) headline = 'No spending recorded yet this month.';
+    else if (s.change === null) headline = `<strong>${peso(s.spent)}</strong> spent in ${days}. Nothing from ${monthName(s.last)} to compare with yet.`;
+    else {
+      const pct = Math.round(Math.abs(s.change) * 100);
+      const cmp = pct === 0 ? 'the same as' : `<span class="${s.change > 0 ? 'neg' : 'pos'}">${pct}% ${s.change > 0 ? 'more' : 'less'}</span> than`;
+      headline = `<strong>${peso(s.spent)}</strong> spent in ${days} — ${cmp} the same days in ${monthName(s.last)} (${peso(s.prevSpent)}).`;
+    }
+    $('sum-headline').innerHTML = headline;
+    const short = monthName(s.last).slice(0, 3);
+    $('sum-cats').innerHTML = s.biggest.length && s.prevSpent ? '<h3 style="margin-top:10px">Biggest changes</h3>' + s.biggest.map(c => `<div class="kv">
+        <span>${esc(c.category)} <span class="muted small">${peso(c.now)}</span></span>
+        <span class="${c.diff > 0 ? 'neg' : 'pos'}">${c.diff > 0 ? '▲' : '▼'} ${peso(Math.abs(c.diff))} <span class="muted small">vs ${short}</span></span>
+      </div>`).join('') : '';
   }
 
   // ---------- budgets ----------
@@ -1303,7 +1325,7 @@ import { budgetStatus } from './lib/budget.js';
   const DEFAULT_PREFS = { theme: '', accent: '', chart: 'earthy', bg: '', bgColor: '', dim: 20, blur: 0, card: '', cardOpacity: 100,
     radius: 'rounded', shadow: 'none', outline: 'thin', font: 'system', size: 1, density: 'comfortable', startTab: 'overview',
     privacy: false, sections: null };
-  const SECTIONS = [['stats', 'Balance summary'], ['wallets', 'Wallets'], ['budgets', 'Budgets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
+  const SECTIONS = [['stats', 'Balance summary'], ['summary', 'This month so far'], ['wallets', 'Wallets'], ['budgets', 'Budgets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
     ['entry', 'Add entry'], ['monthly', 'Monthly'], ['charts', 'Charts']];
   // revenue / expense colors: on the page in light and dark mode, and inside light or dark custom cards
   const CHART_PAIRS = {
@@ -1402,7 +1424,13 @@ import { budgetStatus } from './lib/budget.js';
 
   function sectionPrefs() {
     const s = pref('sections') || {}, known = SECTIONS.map(([k]) => k);
-    const order = [...(s.order || []).filter(k => known.includes(k)), ...known.filter(k => !(s.order || []).includes(k))];
+    const order = (s.order || []).filter(k => known.includes(k));
+    // sections added in a newer version go right after the section that precedes them by default
+    known.forEach((k, i) => {
+      if (order.includes(k)) return;
+      const before = known.slice(0, i).reverse().find(p => order.includes(p));
+      order.splice(before ? order.indexOf(before) + 1 : 0, 0, k);
+    });
     return { order, hidden: (s.hidden || []).filter(k => known.includes(k)) };
   }
   function applySections() {
@@ -1840,6 +1868,7 @@ import { budgetStatus } from './lib/budget.js';
     if (prefs !== state.prefs) { prefs = state.prefs || (state.prefs = {}); applyPrefs(); renderPrefs(); }
     const total = cashWallets().reduce((s, w) => s + balanceOf(w.id), 0);
     const owed = renderCards();
+    renderSummary();
     renderBudgets();   // before renderLoans, which draws the shared alert box
     renderLoans();
     const m = monthTotals(thisMonth());

@@ -395,3 +395,6 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
   .budget-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .budget-form .btn { grid-column: 1 / -1; }
 }
+
+/* monthly summary */
+.sum-headline { margin: 0; line-height: 1.5; }

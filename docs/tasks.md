@@ -17,7 +17,7 @@
 - [x] 4 Undo after delete (merge rule: newer record beats older tombstone)
 - [x] 3 Search in Transactions
 - [x] 1 Budgets per category
-- [ ] 7 Monthly summary
+- [x] 7 Monthly summary
 - [ ] 2 Calendar (.ics) export
 - [ ] 8 Backup reminder + storage warning
 - [ ] 6 Sign-up / welcome screen
