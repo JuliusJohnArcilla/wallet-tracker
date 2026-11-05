@@ -31,12 +31,14 @@ const tick = () => new Promise(r => setTimeout(r, 50));
 const assert = require('assert');
 (async () => {
   // migration: an old per-device prefs key is carried into the profile's data
-  let w = boot({ 'walletTracker.v1.prefs': JSON.stringify({ accent: '#9b6a5b', card: '#80916d' }) });
+  let w = boot({ 'walletTracker.v1.prefs': JSON.stringify({ accent: '#9b6a5b', card: '#80916d', border: false }) });
   let $ = id => w.document.getElementById(id);
   let data = JSON.parse(w.localStorage.getItem('walletTracker.v1'));
   assert.strictEqual(data.prefs.accent, '#9b6a5b'); assert.strictEqual(data.prefs.u, 0);
   assert.strictEqual(w.document.documentElement.style.getPropertyValue('--accent'), '#9b6a5b');
   assert.match($('pref-style').textContent, /--surface: #80916d/);
+  assert.match($('pref-style').textContent, /--border-w: 0px/, 'old outlines-off setting carries over');
+  assert.ok($('personalize').querySelector('[data-pref="outline"][data-val="none"]').classList.contains('active'));
 
   // panel tabs
   assert.ok(!$('personalize').querySelector('[data-pane="colors"].pz-pane').hidden);
@@ -51,9 +53,9 @@ const assert = require('assert');
   click('[data-pref="font"][data-val="serif"]');
   click('[data-pref="size"][data-val="1.1"]');
   click('[data-pref="density"][data-val="compact"]');
-  const border = $('personalize').querySelector('[data-check="border"]'); border.checked = false; border.dispatchEvent(new w.Event('change', { bubbles: true }));
+  click('[data-pref="outline"][data-val="thick"]');
   const css = $('pref-style').textContent;
-  assert.match(css, /--r-lg: 24px/); assert.match(css, /--shadow: 0 1px 3px/); assert.match(css, /--border-w: 0px/);
+  assert.match(css, /--r-lg: 24px/); assert.match(css, /--shadow: 0 1px 3px/); assert.match(css, /--border-w: 2px/);
   assert.match(css, /--pad: 12px/); assert.match(css, /--font: Lora/);
   assert.match(css, /--series-1: #2a78d6; --series-2: #eb6834/, 'bold chart pair on page');
   assert.match(css, /--surface: #80916d;.*--series-1: #2a78d6/s, 'bold pair inside custom cards too');

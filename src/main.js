@@ -1164,7 +1164,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   // ---------- personalize ----------
   // Saved in the profile's data (state.prefs), so the look syncs with the rest of the profile.
   const DEFAULT_PREFS = { theme: '', accent: '', chart: 'earthy', bg: '', bgColor: '', dim: 20, blur: 0, card: '', cardOpacity: 100,
-    radius: 'rounded', shadow: 'none', border: true, font: 'system', size: 1, density: 'comfortable', startTab: 'overview',
+    radius: 'rounded', shadow: 'none', outline: 'thin', font: 'system', size: 1, density: 'comfortable', startTab: 'overview',
     privacy: false, sections: null };
   const SECTIONS = [['stats', 'Balance summary'], ['wallets', 'Wallets'], ['cards', 'Credit cards'], ['loans', 'Loans'],
     ['entry', 'Add entry'], ['monthly', 'Monthly'], ['charts', 'Charts']];
@@ -1174,6 +1174,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     bold: { light: ['#2a78d6', '#eb6834'], dark: ['#3987e5', '#d95926'], onLight: ['#2a78d6', '#eb6834'], onDark: ['#3987e5', '#d95926'] },
   };
   const RADII = { sharp: [4, 4, 4], rounded: [14, 12, 8], round: [24, 18, 12] };
+  const OUTLINES = { none: 0, thin: 1, thick: 2 };
   const SHADOWS = { none: 'none', soft: '0 1px 3px rgba(43,33,22,0.08), 0 4px 14px rgba(43,33,22,0.06)',
     strong: '0 2px 6px rgba(43,33,22,0.12), 0 12px 32px rgba(43,33,22,0.16)' };
   const DENSITY = { compact: [12, 10, 8], comfortable: [16, 14, 12], spacious: [22, 18, 18] };
@@ -1189,7 +1190,8 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     persist();
   }
   let prefs = state.prefs;
-  const pref = k => prefs[k] ?? DEFAULT_PREFS[k];
+  // "outline" replaced the old on/off "border" setting
+  const pref = k => k === 'outline' ? prefs.outline ?? (prefs.border === false ? 'none' : 'thin') : prefs[k] ?? DEFAULT_PREFS[k];
   let privacyOverride = null;   // the 👁 button, for this session only
 
   function savePrefs() {
@@ -1227,7 +1229,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     const darkSeries = `--series-1: ${pair.dark[0]}; --series-2: ${pair.dark[1]};`;
     $('pref-style').textContent = `
       :root { --r-lg: ${rl}px; --r-md: ${rm}px; --r-sm: ${rs}px; --shadow: ${SHADOWS[pref('shadow')] || 'none'};
-        --border-w: ${pref('border') ? 1 : 0}px; --pad: ${pd}px; --pad-m: ${pm}px; --gap: ${gp}px; --font: ${font[0]};
+        --border-w: ${OUTLINES[pref('outline')] ?? 1}px; --pad: ${pd}px; --pad-m: ${pm}px; --gap: ${gp}px; --font: ${font[0]};
         --series-1: ${pair.light[0]}; --series-2: ${pair.light[1]}; }
       @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${darkSeries} } }
       :root[data-theme="dark"] { ${darkSeries} }
@@ -1250,11 +1252,11 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   function islandCss(c, pair) {
     const [s1, s2] = isLight(c) ? pair.onLight : pair.onDark;
     const t = isLight(c)
-      ? `color-scheme: light; --text: #2b2116; --text-2: #5f4e3f; --muted: #75654f; --border: rgba(97,58,43,0.16);
+      ? `color-scheme: light; --text: #2b2116; --text-2: #5f4e3f; --muted: #75654f; --border: rgba(97,58,43,0.28);
          --surface-2: color-mix(in srgb, ${c} 88%, #613a2b); --page: color-mix(in srgb, ${c} 93%, #613a2b);
          --grid: color-mix(in srgb, ${c} 84%, #613a2b); --axis: color-mix(in srgb, ${c} 65%, #613a2b);
          --good: #4b4d26; --bad: #8a5545;`
-      : `color-scheme: dark; --text: #f1e9dd; --text-2: #e3d2bc; --muted: #b8a993; --border: rgba(255,255,255,0.14);
+      : `color-scheme: dark; --text: #f1e9dd; --text-2: #e3d2bc; --muted: #b8a993; --border: rgba(255,255,255,0.24);
          --surface-2: color-mix(in srgb, ${c} 85%, #ffffff); --page: color-mix(in srgb, ${c} 78%, #000000);
          --grid: color-mix(in srgb, ${c} 82%, #ffffff); --axis: color-mix(in srgb, ${c} 65%, #ffffff);
          --good: #c3d1ae; --bad: #f0b8a6;`;

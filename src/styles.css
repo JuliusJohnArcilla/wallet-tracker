@@ -16,7 +16,7 @@
   --muted: #8c7b69;
   --grid: #e6dccd;
   --axis: #cbb397;
-  --border: rgba(97,58,43,0.14);
+  --border: rgba(97,58,43,0.26);
   --accent: #4b4d26;
   --on-accent: #fbf7f1;
   --series-1: #80916d;   /* revenue / savings */
@@ -35,7 +35,7 @@
     --muted: #9a8b78;
     --grid: #353025;
     --axis: #4a4436;
-    --border: rgba(203,179,151,0.14);
+    --border: rgba(203,179,151,0.24);
     --accent: #80916d;
     --on-accent: #17150f;
     --series-1: #80916d;
@@ -54,7 +54,7 @@
   --muted: #9a8b78;
   --grid: #353025;
   --axis: #4a4436;
-  --border: rgba(203,179,151,0.14);
+  --border: rgba(203,179,151,0.24);
   --accent: #80916d;
   --on-accent: #17150f;
   --series-1: #80916d;
