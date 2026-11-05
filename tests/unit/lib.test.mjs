@@ -62,3 +62,13 @@ test('installment schedules', () => {
   assert.equal(round2(s.reduce((sum, o) => sum + o.amount, 0)), 10300, 'last payment absorbs rounding');
   assert.equal(instSchedule({ ...p, closedAt: '2027-01-01' }, 25).length, 2, 'paid-off plans stop billing');
 });
+
+test('a record restored with Undo beats the older delete on other devices', () => {
+  // phone deleted t1 at 10 and synced; then the user pressed Undo at 12 (record gets u = 12)
+  const remote = normalize({ txns: [], deleted: { t1: 10 } });
+  const phone = normalize({ txns: [{ id: 't1', amount: 5, u: 12 }], deleted: {} });
+  assert.deepEqual(merge(phone, remote).txns.map(t => t.id), ['t1']);
+  // but a delete newer than the last edit still wins
+  const later = normalize({ txns: [], deleted: { t1: 15 } });
+  assert.deepEqual(merge(phone, later).txns, []);
+});

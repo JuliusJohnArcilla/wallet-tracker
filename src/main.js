@@ -180,6 +180,37 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   function persist() { ls.set(KEY, JSON.stringify(state)); }
   function save() { applyRecurring(); persist(); render(); scheduleSync(); }
 
+  // Runs a delete, saves, and offers "Undo" for a few seconds. Undo puts the removed records back
+  // with a fresh `u` and drops their tombstones, so they also win over a sync that already ran.
+  let toastTimer;
+  function toast(msg, action, onAction) {
+    clearTimeout(toastTimer);
+    $('toast-msg').textContent = msg;
+    $('toast-btn').textContent = action || '';
+    $('toast-btn').hidden = !action;
+    $('toast-btn').onclick = () => { $('toast').hidden = true; onAction?.(); };
+    $('toast').hidden = false;
+    toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000);
+  }
+  function withUndo(label, remove) {
+    const before = Object.fromEntries(COLS.map(c => [c, state[c].slice()]));
+    remove();
+    save();
+    const gone = COLS.flatMap(c => {
+      const left = new Set(state[c].map(r => r.id));
+      return before[c].filter(r => !left.has(r.id)).map(r => [c, r]);
+    });
+    if (!gone.length) return;
+    toast(`${label} deleted`, 'Undo', () => {
+      for (const [c, r] of gone) {
+        delete state.deleted[r.id];
+        if (!state[c].some(x => x.id === r.id)) state[c].push({ ...r, u: now() });
+      }
+      save();
+      toast(`${label} restored`);
+    });
+  }
+
   const walletName = id => id ? state.wallets.find(w => w.id === id)?.name ?? '(deleted)' : 'Not tracked';
   // Credit cards are wallets with kind 'credit' whose balance is negative (−amount owed),
   // so charges, payments (transfers in) and refunds reuse the normal entry types.
@@ -465,11 +496,12 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     if (lact === 'toggle-paid') { showPaidLoans = !showPaidLoans; renderLoans(); }
     if (lact === 'schedule') { openSchedules.has(id) ? openSchedules.delete(id) : openSchedules.add(id); renderLoans(); }
     if (lact === 'del' && confirm(`Delete this loan with ${l.person}? Its entries (including repayments) are removed from your history and wallet balances.`)) {
-      const ids = state.txns.filter(t => t.loanId === id).map(t => t.id);
-      state.txns = state.txns.filter(t => t.loanId !== id);
-      state.loans = state.loans.filter(x => x.id !== id);
-      forget(id, ...ids);
-      save();
+      withUndo(`Loan with ${l.person}`, () => {
+        const ids = state.txns.filter(t => t.loanId === id).map(t => t.id);
+        state.txns = state.txns.filter(t => t.loanId !== id);
+        state.loans = state.loans.filter(x => x.id !== id);
+        forget(id, ...ids);
+      });
     }
   });
   $('loan-list').addEventListener('submit', e => {
@@ -571,7 +603,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
       const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id)
         || state.installments.some(p => p.walletId === id);
       if (used) { alert(`${w.name} has entries, monthly items or installments. Delete those first, or keep the card.`); return; }
-      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
+      withUndo(w.name, () => { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); });
     }
   });
 
@@ -631,11 +663,12 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
       save();
     }
     if (act === 'del' && confirm(`Delete the installment “${label}” and all of its charges? Use this only if it was entered by mistake.`)) {
-      const ids = state.txns.filter(t => t.installmentId === id).map(t => t.id);
-      state.txns = state.txns.filter(t => t.installmentId !== id);
-      state.installments = state.installments.filter(x => x.id !== id);
-      forget(id, ...ids, ...instSchedule(p).map(o => o.id));
-      save();
+      withUndo(`Installment “${label}”`, () => {
+        const ids = state.txns.filter(t => t.installmentId === id).map(t => t.id);
+        state.txns = state.txns.filter(t => t.installmentId !== id);
+        state.installments = state.installments.filter(x => x.id !== id);
+        forget(id, ...ids, ...instSchedule(p).map(o => o.id));
+      });
     }
   });
 
@@ -665,9 +698,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
         validate: v => parseMoney(v.amount) > 0 ? '' : 'Enter an amount above zero.' },
       ({ amount }) => { r.amount = round2(parseMoney(amount)); r.u = now(); save(); });
     }
-    if (act === 'stop' && confirm(`Stop “${r.category}” from repeating? Entries already added stay.`)) {
-      state.recurring = state.recurring.filter(x => x.id !== id); forget(id); save();
-    }
+    if (act === 'stop') withUndo(`Monthly “${r.category}”`, () => { state.recurring = state.recurring.filter(x => x.id !== id); forget(id); });
   });
 
   function renderRecurring() {
@@ -827,7 +858,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   $('t-body').addEventListener('click', e => {
     const id = e.target.dataset.id; if (!id) return;
     if (e.target.dataset.act === 'edit') startEdit(id);
-    if (e.target.dataset.act === 'del' && confirm('Delete this entry?')) { state.txns = state.txns.filter(t => t.id !== id); forget(id); save(); }
+    if (e.target.dataset.act === 'del') withUndo('Entry', () => { state.txns = state.txns.filter(t => t.id !== id); forget(id); });
   });
 
   const TYPE_LABEL = { income: 'Revenue', expense: 'Expense', transfer: 'Transfer', adjust: 'Adjustment' };
@@ -1084,9 +1115,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
       copy.items.forEach(i => { i.id = uid(); });
       state.plans.push(copy); currentPlanId = copy.id; save();
     }
-    if (act === 'del' && confirm(`Delete the plan “${p.name}”? Expenses you logged for it stay in your history.`)) {
-      state.plans = state.plans.filter(x => x.id !== p.id); forget(p.id); currentPlanId = null; save();
-    }
+    if (act === 'del') withUndo(`Plan “${p.name}”`, () => { state.plans = state.plans.filter(x => x.id !== p.id); forget(p.id); currentPlanId = null; });
     if (act === 'goal') {
       const g = { id: uid(), name: p.name, target: round2(planTotals(p).total), deadline: p.start || '', u: now() };
       state.goals.push(g); p.goalId = g.id; p.u = now(); save();
@@ -1120,12 +1149,11 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
         save();
       });
     }
-    if (act === 'del' && confirm(`Delete goal “${g.name}” and its history?`)) {
+    if (act === 'del') withUndo(`Goal “${g.name}”`, () => {
       forget(id, ...state.goalEntries.filter(x => x.goalId === id).map(x => x.id));
       state.goals = state.goals.filter(x => x.id !== id);
       state.goalEntries = state.goalEntries.filter(x => x.goalId !== id);
-      save();
-    }
+    });
   });
 
   function renderGoals() {
@@ -1172,7 +1200,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     if (act === 'del') {
       const used = state.txns.some(t => t.walletId === id || t.toWalletId === id) || state.recurring.some(r => r.walletId === id);
       if (used) { alert(`${w.name} has entries or monthly items. Delete those first, or keep the wallet.`); return; }
-      if (confirm(`Remove ${w.name}?`)) { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); save(); }
+      withUndo(w.name, () => { state.wallets = state.wallets.filter(x => x.id !== id); forget(id); });
     }
   });
 

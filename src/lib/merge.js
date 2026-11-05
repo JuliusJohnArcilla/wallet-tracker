@@ -19,7 +19,9 @@ export function merge(a, b) {
       const cur = m.get(r.id);
       if (!cur || (r.u || 0) > (cur.u || 0)) m.set(r.id, r);
     }
-    out[col] = [...m.values()].filter(r => !(r.id in deleted));
+    // a tombstone hides a record only if it's newer than the record's last change, so a record
+    // restored with Undo (fresh u) beats an older delete
+    out[col] = [...m.values()].filter(r => !(r.id in deleted) || (r.u || 0) > deleted[r.id]);
   }
   // the look is one record per profile: the most recently changed one wins
   out.prefs = ((a.prefs?.u || 0) >= (b.prefs?.u || 0) ? a.prefs : b.prefs) || {};

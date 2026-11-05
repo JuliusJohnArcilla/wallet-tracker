@@ -362,3 +362,17 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
   .modal-card { max-width: none; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom)); }
   .modal-actions .btn { flex: 1; }
 }
+
+/* "Deleted · Undo" bar */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; z-index: 40;
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px);
+  padding: 10px 10px 10px 16px; border-radius: 12px; background: #2b2116; color: #f4ede3;
+  box-shadow: 0 6px 24px rgba(23, 21, 15, 0.3); font-size: 14px;
+}
+.toast[hidden] { display: none; }
+.toast-btn { border: 0; background: none; color: #cbb397; font: inherit; font-weight: 700; padding: 6px 8px; cursor: pointer; }
+.toast-btn[hidden] { display: none; }
+@media (max-width: 640px) {
+  .toast { bottom: calc(140px + env(safe-area-inset-bottom)); }   /* above the tab bar and + button */
+}
