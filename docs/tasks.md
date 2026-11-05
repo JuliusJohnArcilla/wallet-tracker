@@ -15,7 +15,7 @@
 - [x] 11 Clearer card borders (None / Thin / Thick)
 - [x] 5 In-app dialogs replacing prompt()
 - [x] 4 Undo after delete (merge rule: newer record beats older tombstone)
-- [ ] 3 Search in Transactions
+- [x] 3 Search in Transactions
 - [ ] 1 Budgets per category
 - [ ] 7 Monthly summary
 - [ ] 2 Calendar (.ics) export

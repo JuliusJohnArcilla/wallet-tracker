@@ -852,7 +852,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   }
 
   // ---------- transactions tab ----------
-  ['t-month', 't-wallet', 't-type'].forEach(id => $(id).addEventListener('input', renderTxns));
+  ['t-search', 't-month', 't-wallet', 't-type'].forEach(id => $(id).addEventListener('input', renderTxns));
   $('t-clear').addEventListener('click', () => { $('t-month').value = ''; renderTxns(); });
 
   $('t-body').addEventListener('click', e => {
@@ -864,9 +864,18 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
   const TYPE_LABEL = { income: 'Revenue', expense: 'Expense', transfer: 'Transfer', adjust: 'Adjustment' };
 
   function renderTxns() {
-    const m = $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
+    // a search looks across all months; every word must match somewhere in the entry
+    const words = $('t-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const m = words.length ? '' : $('t-month').value, w = $('t-wallet').value, ty = $('t-type').value;
+    const matches = t => {
+      if (!words.length) return true;
+      const plan = t.planId && state.plans.find(p => p.id === t.planId);
+      const hay = [t.note, t.category, walletName(t.walletId), t.toWalletId && walletName(t.toWalletId), plan?.name,
+        String(t.amount), peso(t.amount).replace(/[−₱]/g, ''), t.date].join(' ').toLowerCase();
+      return words.every(word => hay.includes(word.replace(/[₱,]/g, '')) || hay.includes(word));
+    };
     const rows = state.txns
-      .filter(t => (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w)
+      .filter(t => matches(t) && (!m || t.date.startsWith(m)) && (!w || t.walletId === w || t.toWalletId === w)
         && (!ty || (ty === 'monthly' ? t.recurringId : ty === 'installment' ? t.installmentId : ty === 'plan' ? t.planId
           : ty === 'loan' ? t.loanId : t.type === ty)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
@@ -889,7 +898,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
     $('t-empty').hidden = rows.length > 0;
     const inc = rows.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const exp = rows.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    $('t-summary').textContent = `${rows.length} entries · Revenue ${peso(inc)} · Expenses ${peso(exp)} · Net ${peso(inc - exp)}`;
+    $('t-summary').textContent = (words.length ? 'All months · ' : '') + `${rows.length} entries · Revenue ${peso(inc)} · Expenses ${peso(exp)} · Net ${peso(inc - exp)}`;
   }
 
   // ---------- plans (trip / purchase calculator) ----------

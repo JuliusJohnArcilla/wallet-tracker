@@ -376,3 +376,7 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 @media (max-width: 640px) {
   .toast { bottom: calc(140px + env(safe-area-inset-bottom)); }   /* above the tab bar and + button */
 }
+
+/* Transactions search */
+.search { display: block; margin-bottom: 10px; }
+.search input { margin-top: 4px; }
