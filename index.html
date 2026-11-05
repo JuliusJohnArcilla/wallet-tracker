@@ -38,6 +38,55 @@
   </div>
 </div>
 
+<!-- SIGN UP (first run and "Add profile") -->
+<div id="signup" class="screen" hidden>
+  <form id="su-form" class="card gate-card su-card" autocomplete="off" novalidate>
+    <div class="su-step" data-step="1">
+      <div class="su-logo" aria-hidden="true">₱</div>
+      <h1 id="su-title">Welcome to Wallet Tracker</h1>
+      <p class="muted" id="su-intro">Keep track of your GCash, Maya, GoTyme, MariBank and BanKo balances, credit cards, loans and budgets. Everything stays on your device.</p>
+      <label>Your name<input id="su-name" placeholder="e.g. Julius" maxlength="40"></label>
+      <label class="check"><input type="checkbox" id="su-pin-on"> Protect this profile with a PIN</label>
+      <div id="su-pin" class="su-two" hidden>
+        <label>PIN (4–8 digits)<input id="su-pin-a" type="password" inputmode="numeric" maxlength="8"></label>
+        <label>Type it again<input id="su-pin-b" type="password" inputmode="numeric" maxlength="8"></label>
+      </div>
+      <div class="neg small su-err" id="su-err1" role="alert"></div>
+      <button type="button" class="btn primary su-wide" id="su-next">Next</button>
+      <button type="button" class="link su-alt" id="su-restore-link">I already use Wallet Tracker on another device</button>
+      <button type="button" class="link su-alt" id="su-cancel" hidden>Cancel</button>
+    </div>
+
+    <div class="su-step" data-step="2" hidden>
+      <h2>Your wallets</h2>
+      <p class="muted small">Tick the ones you use and enter the balance each app shows right now. You can change these anytime.</p>
+      <div id="su-wallets" class="su-wallets"></div>
+      <div class="su-add">
+        <input id="su-new-wallet" placeholder="Add another, e.g. BPI Savings" maxlength="40">
+        <button type="button" class="btn" id="su-add-wallet">Add</button>
+      </div>
+      <div class="neg small su-err" id="su-err2" role="alert"></div>
+      <div class="flex between su-actions">
+        <button type="button" class="btn" data-su-back="1">Back</button>
+        <button type="submit" class="btn primary">Create my profile</button>
+      </div>
+    </div>
+
+    <div class="su-step" data-step="restore" hidden>
+      <h2>Restore from another device</h2>
+      <p class="muted small">On your other device, open <strong>Settings → Sync between devices</strong>. Paste the same GitHub token here, or
+        <a href="https://github.com/settings/tokens/new?scopes=gist&description=Wallet%20Tracker%20sync" target="_blank" rel="noopener">create a new one</a> with only the “gist” permission.</p>
+      <label>Your name<input id="su-r-name" maxlength="40" placeholder="e.g. Julius"></label>
+      <label>GitHub token<input id="su-token" type="password" placeholder="ghp_…" autocomplete="off"></label>
+      <div class="neg small su-err" id="su-err3" role="alert"></div>
+      <div class="flex between su-actions">
+        <button type="button" class="btn" data-su-back="1">Back</button>
+        <button type="button" class="btn primary" id="su-restore">Restore my data</button>
+      </div>
+    </div>
+  </form>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite" hidden>
   <span id="toast-msg"></span><button type="button" class="toast-btn" id="toast-btn"></button>
 </div>

@@ -118,12 +118,77 @@ import { buildIcs } from './lib/ics.js';
     location.reload();
   }
   function openGate() { ss.del(UNLOCKED_KEY); ss.set(GATE_KEY, '1'); location.reload(); }
-  function addProfile() {
-    const name = prompt('Name for the new profile:');
-    if (!name || !name.trim()) return;
-    const p = { id: uid(), name: name.trim(), pin: '' };
-    profiles.push(p); saveProfiles();
-    enterProfile(p.id);
+  // ---------- sign-up ----------
+  // First run ('first') or "Add profile" ('add'): name, optional PIN, wallets with starting balances,
+  // or restore from another device with a GitHub token (synced after the profile opens).
+  const RESTORE_KEY = 'walletTracker.pendingRestore';
+  function showSignup(mode) {
+    $('gate').hidden = true;
+    $('signup').hidden = false;
+    $('su-title').textContent = mode === 'first' ? 'Welcome to Wallet Tracker' : 'New profile';
+    $('su-intro').hidden = mode !== 'first';
+    $('su-cancel').hidden = mode === 'first';
+    const step = s => {
+      document.querySelectorAll('.su-step').forEach(el => { el.hidden = el.dataset.step !== String(s); });
+      document.querySelector(`.su-step[data-step="${s}"] input:not([type="checkbox"])`)?.focus();
+    };
+    const wallets = DEFAULT_WALLETS.map(name => ({ name, on: true, bal: '' }));
+    const renderWallets = () => {
+      $('su-wallets').innerHTML = wallets.map((w, i) => `<div class="su-wallet">
+        <input type="checkbox" id="su-w-${i}" data-i="${i}" ${w.on ? 'checked' : ''}>
+        <label for="su-w-${i}">${esc(w.name)}</label>
+        <input inputmode="decimal" data-bal="${i}" value="${esc(w.bal)}" placeholder="₱0.00" ${w.on ? '' : 'disabled'} aria-label="${esc(w.name)} balance">
+      </div>`).join('');
+    };
+    renderWallets();
+    $('su-wallets').onchange = e => { const i = e.target.dataset.i; if (i !== undefined) { wallets[i].on = e.target.checked; renderWallets(); } };
+    $('su-wallets').oninput = e => { const i = e.target.dataset.bal; if (i !== undefined) wallets[i].bal = e.target.value; };
+    $('su-add-wallet').onclick = () => {
+      const name = $('su-new-wallet').value.trim(); if (!name) return;
+      wallets.push({ name, on: true, bal: '' }); $('su-new-wallet').value = ''; renderWallets();
+    };
+    $('su-pin-on').onchange = () => { $('su-pin').hidden = !$('su-pin-on').checked; };
+    document.querySelectorAll('[data-su-back]').forEach(b => { b.onclick = () => step(1); });
+    $('su-cancel').onclick = () => { $('signup').hidden = true; showGate(); };
+
+    const checkFirst = () => {
+      const name = $('su-name').value.trim(), pinOn = $('su-pin-on').checked, a = $('su-pin-a').value;
+      if (!name) return 'Enter your name.';
+      if (pinOn && !/^\d{4,8}$/.test(a)) return 'The PIN should be 4 to 8 digits.';
+      if (pinOn && a !== $('su-pin-b').value) return 'The two PINs don’t match.';
+      return '';
+    };
+    $('su-next').onclick = () => { const err = checkFirst(); $('su-err1').textContent = err; if (!err) step(2); };
+    $('su-restore-link').onclick = () => { $('su-r-name').value = $('su-name').value.trim(); $('su-err3').textContent = ''; step('restore'); };
+
+    const create = async (name, pin) => {
+      const p = { id: mode === 'first' ? 'main' : uid(), name, pin: '' };
+      if (pin) p.pin = await hashPin(p.id, pin);
+      profiles = mode === 'first' ? [p] : [...profiles, p];
+      saveProfiles();
+      return p.id;
+    };
+    $('su-form').onsubmit = async e => {
+      e.preventDefault();
+      const chosen = wallets.filter(w => w.on);
+      const bad = chosen.find(w => w.bal.trim() && isNaN(parseMoney(w.bal)));
+      if (!chosen.length) { $('su-err2').textContent = 'Pick at least one wallet.'; return; }
+      if (bad) { $('su-err2').textContent = `Check the balance for ${bad.name}.`; return; }
+      const pid = await create($('su-name').value.trim(), $('su-pin-on').checked ? $('su-pin-a').value : '');
+      const opened = Date.now();
+      ls.set(dataKeyOf(pid), JSON.stringify(normalize({ wallets: chosen.map(w => ({ id: uid(), name: w.name,
+        opening: round2(parseMoney(w.bal) || 0), u: opened })) })));
+      enterProfile(pid);
+    };
+    $('su-restore').onclick = async () => {
+      const name = $('su-r-name').value.trim(), token = $('su-token').value.trim();
+      if (!name) { $('su-err3').textContent = 'Enter your name.'; return; }
+      if (!token) { $('su-err3').textContent = 'Paste your GitHub token.'; return; }
+      const pid = await create(name, $('su-pin-on').checked && !checkFirst() ? $('su-pin-a').value : '');
+      ss.set(RESTORE_KEY, token);   // picked up once the profile opens
+      enterProfile(pid);
+    };
+    step(1);
   }
 
   function showGate() {
@@ -147,13 +212,16 @@ import { buildIcs } from './lib/ics.js';
       if (await hashPin(pinFor.id, $('pin-input').value) === pinFor.pin) enterProfile(pinFor.id);
       else { $('pin-error').textContent = 'Wrong PIN'; $('pin-input').value = ''; }
     };
-    $('gate-add').onclick = addProfile;
+    $('gate-add').onclick = () => showSignup('add');
   }
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(BUILD_ID)).catch(() => {});
   }
   navigator.storage?.persist?.().catch(() => {});
+
+  // brand-new install (no profiles and no data from before profiles existed)
+  if (!ls.get(PROFILES_KEY) && !ls.get('walletTracker.v1')) { showSignup('first'); return; }
 
   const currentId = profiles.some(p => p.id === ls.get(CURRENT_KEY)) ? ls.get(CURRENT_KEY) : profiles[0].id;
   const profile = profiles.find(p => p.id === currentId);
@@ -1740,13 +1808,14 @@ import { buildIcs } from './lib/ics.js';
   }
   function applyRecurringTo(s) { const keep = state; state = s; applyRecurring(); state = keep; }
 
-  async function connectSync(token) {
+  async function connectSync(token, { restore = false } = {}) {
     syncCfg = { token, file: `${GIST_PREFIX}-${fileSlug()}.json` };
     renderSync('Connecting…');
     try {
       const files = await listSyncFiles();
       let pick = files.find(f => f.file === syncCfg.file);
-      if (!pick && files.length === 1) {
+      if (!pick && files.length === 1 && restore) pick = files[0];   // restoring: the only synced profile is the one
+      else if (!pick && files.length === 1) {
         if (confirm(`This GitHub account already has synced data: “${files[0].file}” (last saved ${fmtStamp(files[0].updated)}).\n\n`
           + `OK = link ${profile.name} to it (choose this if it’s you on another device)\nCancel = keep ${profile.name}’s data separate`)) pick = files[0];
       } else if (!pick && files.length > 1) {
@@ -1762,6 +1831,7 @@ import { buildIcs } from './lib/ics.js';
           state = remote; applyRecurring(); persist(); render();
         }
       } else {
+        if (restore) toast('No synced data found on that GitHub account, so this device starts a new synced profile');
         const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: `Wallet Tracker sync data for ${profile.name} (do not edit)`, public: false, ...gistBody(state) }) });
         syncCfg.gistId = g.id;
       }
@@ -2004,5 +2074,8 @@ import { buildIcs } from './lib/ics.js';
   if (pref('startTab') !== 'overview') document.querySelector(`#nav [data-tab="${pref('startTab')}"]`)?.click();
   $('app-version').textContent = APP_VERSION;
   renderSync();
-  runSync();
+  // finishing a sign-up that chose "restore from another device"
+  const restoreToken = ss.get(RESTORE_KEY);
+  if (restoreToken) { ss.del(RESTORE_KEY); connectSync(restoreToken, { restore: true }); }
+  else runSync();
 })();

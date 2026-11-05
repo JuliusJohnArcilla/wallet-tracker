@@ -398,3 +398,26 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 
 /* monthly summary */
 .sum-headline { margin: 0; line-height: 1.5; }
+
+/* sign-up screen */
+#signup { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+#signup[hidden] { display: none; }
+.su-card { text-align: left; max-width: 460px; }
+.su-card h1 { font-size: 22px; margin: 4px 0 6px; }
+.su-card label + label, .su-card .check { margin-top: 10px; }
+.su-logo { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 28px; font-weight: 700;
+  background: var(--accent); color: var(--on-accent); margin-bottom: 8px; }
+.su-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+.su-two label + label { margin-top: 0; }
+.su-err { min-height: 1em; margin: 8px 0 4px; }
+.su-wide { width: 100%; margin-top: 4px; }
+.su-alt { display: block; margin: 10px auto 0; padding: 6px; }
+.su-actions { margin-top: 12px; }
+.su-wallets { display: grid; gap: 6px; }
+.su-wallet { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 8.5em); gap: 8px; align-items: center;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); }
+.su-wallet input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.su-wallet input[inputmode] { margin: 0; text-align: right; }
+.su-wallet input:disabled { opacity: 0.4; }
+.su-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
+.su-add input { margin: 0; }

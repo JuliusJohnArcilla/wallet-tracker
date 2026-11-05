@@ -49,13 +49,18 @@ $('accent-swatches').querySelector('[data-accent="#9b6a5b"]').click();
 assert.strictEqual(w.document.documentElement.style.getPropertyValue('--accent'), '#9b6a5b');
 
 // 5. add a second profile -> reload requested; reopen with that storage
-w.prompt = () => 'Partner';
 $('pf-switch').click();
 let st = dump(w), ses = dumpS(w);
 w = open(st, ses);
 assert.strictEqual(w.document.getElementById('gate').hidden, false, 'gate shown on switch');
-w.prompt = () => 'Partner';
+// 'Add profile' opens the sign-up screen
 w.document.getElementById('gate-add').click();
+assert.strictEqual(w.document.getElementById('signup').hidden, false, 'sign-up shown');
+assert.strictEqual(w.document.getElementById('su-title').textContent, 'New profile');
+w.document.getElementById('su-name').value = 'Partner';
+w.document.getElementById('su-next').click();
+w.document.getElementById('su-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+setTimeout(() => {
 st = dump(w); ses = dumpS(w);
 w = open(st, ses);
 const $$ = id => w.document.getElementById(id);
@@ -73,3 +78,4 @@ assert.strictEqual(main.recurring.length, 1); assert.strictEqual(main.txns.lengt
 
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 console.log('smoke test passed'); process.exit(0);
+}, 50);

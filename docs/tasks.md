@@ -20,7 +20,7 @@
 - [x] 7 Monthly summary
 - [x] 2 Calendar (.ics) export
 - [x] 8 Backup reminder + storage warning
-- [ ] 6 Sign-up / welcome screen
+- [x] 6 Sign-up / welcome screen
 - [ ] 10 Encrypted sync (optional)
 
 ## Wrap-up
