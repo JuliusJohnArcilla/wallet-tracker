@@ -5,6 +5,7 @@ import { loanSchedule, instMonthly, instPayable, instSchedule as instScheduleFor
 import { budgetStatus } from './lib/budget.js';
 import { monthSummary } from './lib/summary.js';
 import { buildIcs } from './lib/ics.js';
+import { encryptJson, decryptJson, isEncrypted } from './lib/crypto.js';
 
 (() => {
   // Set by the Vite build to the commit id; a new id makes the service worker update.
@@ -1765,7 +1766,19 @@ import { buildIcs } from './lib/ics.js';
     const f = g.files?.[syncCfg.file];
     if (!f) return null;
     const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
-    return normalize(JSON.parse(text));
+    const parsed = JSON.parse(text);
+    syncCfg.remoteEncrypted = isEncrypted(parsed);
+    if (!syncCfg.remoteEncrypted) return normalize(parsed);
+    // encrypted: this device must never write until it can read it
+    syncCfg.salt = parsed.salt;
+    const locked = msg => Object.assign(new Error(msg), { code: 'NEEDS_PASSPHRASE' });
+    if (!syncCfg.passphrase) throw locked('Synced data is encrypted. Enter the passphrase to sync this device.');
+    // while a passphrase change is being written, the file is still locked with the old one
+    for (const pass of [syncCfg.passphrase, syncCfg.oldPassphrase].filter(Boolean)) {
+      try { return normalize(await decryptJson(parsed, pass)); } catch {}
+    }
+    delete syncCfg.passphrase;
+    throw locked('Wrong passphrase (it may have been changed on another device).');
   }
   // every Wallet Tracker file on this GitHub account: [{ gistId, file }]
   async function listSyncFiles() {
@@ -1778,7 +1791,14 @@ import { buildIcs } from './lib/ics.js';
     }
     return found;
   }
-  const gistBody = data => ({ files: { [syncCfg.file]: { content: JSON.stringify(data) } } });
+  async function gistBody(data) {
+    let content = data;
+    if (syncCfg.encrypt && syncCfg.passphrase) {
+      content = await encryptJson(data, syncCfg.passphrase, syncCfg.salt);
+      syncCfg.salt = content.salt;
+    }
+    return { files: { [syncCfg.file]: { content: JSON.stringify(content) } } };
+  }
 
   // A profile that has never been used: default wallets only, nothing entered or edited.
   const isPristine = s => !s.txns.length && !s.goals.length && !s.goalEntries.length && !s.recurring.length
@@ -1796,12 +1816,25 @@ import { buildIcs } from './lib/ics.js';
     syncing = true; renderSync('Syncing…');
     try {
       const remote = await readGist() || normalize({});
+      // encryption follows the synced file, unless this device just turned it on/off
+      if (!syncCfg.forceWrite) syncCfg.encrypt = !!syncCfg.remoteEncrypted;
+      // linked while the file was locked: a brand-new profile takes the synced data as-is
+      if (syncCfg.pendingReplace) {
+        delete syncCfg.pendingReplace;
+        if (isPristine(state)) { state = normalize(remote); applyRecurring(); persist(); render(); }
+      }
       const merged = normalize(merge(state, remote));   // uses the latest local state, after the await
       applyRecurringTo(merged);
       if (sig(merged) !== sig(state)) { state = merged; persist(); render(); }
-      if (sig(merged) !== sig(remote)) await gh('/gists/' + syncCfg.gistId, { method: 'PATCH', body: JSON.stringify(gistBody(merged)) });
-      syncCfg.lastSync = now(); syncCfg.error = '';
-    } catch (err) { syncCfg.error = err.message; }
+      if (sig(merged) !== sig(remote) || syncCfg.forceWrite) {
+        await gh('/gists/' + syncCfg.gistId, { method: 'PATCH', body: JSON.stringify(await gistBody(merged)) });
+        syncCfg.remoteEncrypted = !!syncCfg.encrypt;
+        delete syncCfg.forceWrite;
+        delete syncCfg.oldPassphrase;
+        if (!syncCfg.encrypt) delete syncCfg.passphrase;   // encryption was turned off
+      }
+      syncCfg.lastSync = now(); syncCfg.error = ''; syncCfg.needsPass = false;
+    } catch (err) { if (syncCfg) { syncCfg.error = err.message; syncCfg.needsPass = err.code === 'NEEDS_PASSPHRASE'; } }
     if (syncCfg) saveCfg();
     syncing = false; renderSync();
     if (syncAgain) { syncAgain = false; runSync(); }
@@ -1826,13 +1859,21 @@ import { buildIcs } from './lib/ics.js';
       }
       if (pick) {
         Object.assign(syncCfg, pick);
-        const remote = await readGist();
+        let remote;
+        try { remote = await readGist(); }
+        catch (e) {
+          if (e.code !== 'NEEDS_PASSPHRASE') throw e;
+          // stay linked, ask for the passphrase, and finish on the first successful sync
+          Object.assign(syncCfg, { needsPass: true, error: e.message, pendingReplace: isPristine(state) });
+          saveCfg(); $('sync-token').value = ''; renderSync(); unlockSync();
+          return;
+        }
         if (remote && (isPristine(state) || confirm('Found synced data on GitHub.\n\nOK = replace what’s on this device with it\nCancel = merge both (wallets may appear twice)'))) {
           state = remote; applyRecurring(); persist(); render();
         }
       } else {
         if (restore) toast('No synced data found on that GitHub account, so this device starts a new synced profile');
-        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: `Wallet Tracker sync data for ${profile.name} (do not edit)`, public: false, ...gistBody(state) }) });
+        const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: `Wallet Tracker sync data for ${profile.name} (do not edit)`, public: false, ...(await gistBody(state)) }) });
         syncCfg.gistId = g.id;
       }
       saveCfg();
@@ -1843,6 +1884,38 @@ import { buildIcs } from './lib/ics.js';
       alert('Could not connect: ' + err.message);
     }
   }
+
+  // ---------- encrypted sync ----------
+  const passFields = [{ name: 'a', label: 'Passphrase (at least 8 characters)', type: 'password' }, { name: 'b', label: 'Type it again', type: 'password' }];
+  const checkPass = v => v.a.length < 8 ? 'Use at least 8 characters.' : v.a !== v.b ? 'The two passphrases don’t match.' : '';
+  function unlockSync() {
+    ask({ title: 'Enter your sync passphrase', ok: 'Unlock',
+      message: 'This profile’s synced data is encrypted. Enter the passphrase you set on your other device.',
+      fields: [{ name: 'p', label: 'Passphrase', type: 'password' }], validate: v => v.p ? '' : 'Enter the passphrase.' },
+    ({ p }) => { Object.assign(syncCfg, { passphrase: p, needsPass: false, error: '' }); saveCfg(); runSync(); });
+  }
+  function setPassphrase(turnOn) {
+    ask({ title: turnOn ? 'Encrypt synced data' : 'Change passphrase', ok: turnOn ? 'Encrypt' : 'Change', fields: passFields,
+      message: 'The synced file on GitHub becomes unreadable without this passphrase. Enter it once on each of your devices. '
+        + 'If you forget it, the synced copy can’t be recovered (the data on your devices is not affected).',
+      validate: checkPass },
+    ({ a }) => {
+      if (!turnOn && syncCfg.passphrase) syncCfg.oldPassphrase = syncCfg.passphrase;   // to read the file one last time
+      Object.assign(syncCfg, { passphrase: a, encrypt: true, forceWrite: true });
+      delete syncCfg.salt;   // new passphrase, new salt
+      saveCfg(); runSync();
+      toast(turnOn ? 'Synced data is now encrypted. Enter the passphrase on your other devices.' : 'Passphrase changed. Enter the new one on your other devices.');
+    });
+  }
+  $('sync-enc-btn').addEventListener('click', e => {
+    const act = e.target.dataset.act;
+    if (act === 'unlock') unlockSync();
+    if (act === 'on') setPassphrase(true);
+    if (act === 'off' && confirm('Turn off encryption? The synced file on GitHub will be readable again by anyone who gets its link.')) {
+      Object.assign(syncCfg, { encrypt: false, forceWrite: true }); saveCfg(); runSync();
+    }
+  });
+  $('sync-enc-change').addEventListener('click', () => setPassphrase(false));
 
   function renderSync(msg) {
     $('sync-off').hidden = !!syncCfg;
@@ -1855,8 +1928,17 @@ import { buildIcs } from './lib/ics.js';
     $('sync-detail').textContent = syncCfg.gistId
       ? `This device syncs “${profile.name}” with ${syncCfg.file} (Gist ${syncCfg.gistId.slice(0, 7)}). Your other devices should show the same file and Gist.`
       : '';
-    const short = msg || (!navigator.onLine ? 'Offline' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
-    $('sync-badge').textContent = profile.name + (short ? ' · ' + short : '');
+    const [encText, encAct, encLabel] = syncCfg.needsPass
+      ? ['🔒 The synced data is encrypted. Enter the passphrase to sync this device.', 'unlock', 'Enter passphrase']
+      : syncCfg.encrypt ? ['🔒 Encrypted: the synced file can only be read with your passphrase.', 'off', 'Turn off encryption']
+        : ['Not encrypted: anyone with the Gist link could read the synced file.', 'on', 'Encrypt with a passphrase'];
+    $('sync-enc-state').textContent = encText;
+    $('sync-enc-btn').textContent = encLabel;
+    $('sync-enc-btn').dataset.act = encAct;
+    $('sync-enc-btn').classList.toggle('primary', encAct === 'unlock');
+    $('sync-enc-change').hidden = !syncCfg.encrypt || syncCfg.needsPass;
+    const short = msg || (!navigator.onLine ? 'Offline' : syncCfg.needsPass ? '🔒 Needs passphrase' : syncCfg.error ? '⚠ Sync failed' : time ? '✓ Synced ' + time : '');
+    $('sync-badge').textContent = profile.name + (short ? ' · ' + short : '') + (syncCfg.encrypt && !syncCfg.needsPass ? ' · 🔒' : '');
   }
 
   $('sync-connect').addEventListener('click', () => {

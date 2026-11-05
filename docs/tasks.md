@@ -21,7 +21,7 @@
 - [x] 2 Calendar (.ics) export
 - [x] 8 Backup reminder + storage warning
 - [x] 6 Sign-up / welcome screen
-- [ ] 10 Encrypted sync (optional)
+- [x] 10 Encrypted sync (optional)
 
 ## Wrap-up
 - [ ] All tests pass locally and in Actions; phone layout check at 360/390px

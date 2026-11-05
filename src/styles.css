@@ -421,3 +421,8 @@ body.privacy :is(.stat .value, .wallet .bal, .cc .owed, .cc .line, td.num, .sum-
 .su-wallet input:disabled { opacity: 0.4; }
 .su-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
 .su-add input { margin: 0; }
+
+/* encrypted sync row */
+.enc-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+  padding: 10px 12px; margin: 0 0 12px; border-radius: var(--r-sm); background: var(--surface-2); }
+.enc-row > span:first-child { flex: 1 1 220px; }
